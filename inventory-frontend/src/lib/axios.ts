@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API_BASE_URL = window.location.protocol.startsWith('https') 
-  ? 'https://localhost:4000' 
+  ? 'https://inventory-9cwi.onrender.com' 
   : 'http://localhost:4000';
 
 export const api = axios.create({
