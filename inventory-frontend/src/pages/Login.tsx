@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { api } from '../lib/axios';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -18,7 +19,13 @@ const Login = () => {
     setError('');
 
     try {
-      await login(formData.email, formData.password);
+      const response = await api.post('/auth/login', {
+        email: formData.email,
+        password: formData.password
+      });
+      
+      const { user, token } = response.data;
+      login(user, token);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed');
