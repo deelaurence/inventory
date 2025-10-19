@@ -39,7 +39,7 @@ export class ProductsService {
       }
       
       await this.movementsService.createMovement({
-        productId: existingProduct._id.toString(),
+        productId: (existingProduct._id as any).toString(),
         toLocationId: locationId,
         quantity,
         unitPrice,
@@ -64,7 +64,7 @@ export class ProductsService {
       const savedProduct = await product.save();
       
       await this.movementsService.createMovement({
-        productId: savedProduct._id.toString(),
+        productId: (savedProduct._id as any).toString(),
         toLocationId: locationId,
         quantity,
         unitPrice,

@@ -17,7 +17,8 @@ export class ProductsController {
   }
 
   @Get()
-  async findAll() {
+  async findAll(@Request() req) {
+    console.log('ProductsController - GET /products - User:', req.user);
     return this.productsService.findAll();
   }
 

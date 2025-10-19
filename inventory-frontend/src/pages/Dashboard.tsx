@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { productsApi, Product } from '../services/productsApi';
+import { productsApi, type Product } from '../services/productsApi';
 
 const Dashboard = () => {
   const { user } = useAuthStore();

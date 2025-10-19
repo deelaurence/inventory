@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { productsApi, CreateProductDto } from '../services/productsApi';
-import { Location } from '../services/locationsApi';
+import { productsApi, type CreateProductDto } from '../services/productsApi';
+import { type Location } from '../services/locationsApi';
 
 interface ImportProductModalProps {
   isOpen: boolean;

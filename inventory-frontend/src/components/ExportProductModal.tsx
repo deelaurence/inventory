@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { productsApi, ExportProductDto, Product } from '../services/productsApi';
-import { Location } from '../services/locationsApi';
+import { productsApi, type ExportProductDto, type Product } from '../services/productsApi';
+import { type Location } from '../services/locationsApi';
 
 interface ExportProductModalProps {
   isOpen: boolean;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { movementsApi, Movement } from '../services/movementsApi';
+import { movementsApi, type Movement } from '../services/movementsApi';
 
 const MovementHistory = () => {
   const [movements, setMovements] = useState<Movement[]>([]);

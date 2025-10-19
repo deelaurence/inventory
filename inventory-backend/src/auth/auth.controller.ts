@@ -9,10 +9,15 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
+    console.log('AuthController - Login attempt for email:', loginDto.email);
     const user = await this.authService.validateUser(loginDto.email, loginDto.password);
+    console.log('AuthController - User validation result:', user ? 'Success' : 'Failed');
     if (!user) {
+      console.log('AuthController - Login failed - Invalid credentials');
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.authService.login(user);
+    const result = await this.authService.login(user);
+    console.log('AuthController - Login successful, returning token');
+    return result;
   }
 }

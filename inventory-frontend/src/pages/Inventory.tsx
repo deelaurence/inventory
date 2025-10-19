@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { productsApi, Product } from '../services/productsApi';
-import { locationsApi, Location } from '../services/locationsApi';
-import ImportProductModal from '../components/ImportProductModal';
-import TransferProductModal from '../components/TransferProductModal';
-import ExportProductModal from '../components/ExportProductModal';
+import { productsApi, type Product } from '../services/productsApi';
+import { locationsApi, type Location } from '../services/locationsApi';
+import ImportProductModal from '../components/ImportProductModal.tsx';
+import TransferProductModal from '../components/TransferProductModal.tsx';
+import ExportProductModal from '../components/ExportProductModal.tsx';
 
 const Inventory = () => {
   const [products, setProducts] = useState<Product[]>([]);
