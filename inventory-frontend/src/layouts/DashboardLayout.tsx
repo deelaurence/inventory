@@ -16,6 +16,7 @@ const DashboardLayout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: '🏠' },
     { name: 'Inventory', href: '/dashboard/inventory', icon: '📦' },
+    { name: 'Movement History', href: '/dashboard/movements', icon: '📊' },
     { name: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
   ];
 

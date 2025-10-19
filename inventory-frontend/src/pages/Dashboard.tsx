@@ -1,7 +1,46 @@
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { productsApi, Product } from '../services/productsApi';
 
 const Dashboard = () => {
   const { user } = useAuthStore();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const data = await productsApi.fetchProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTotalItems = () => {
+    return products.reduce((total, product) => {
+      return total + product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
+    }, 0);
+  };
+
+  const getInStockItems = () => {
+    return products.reduce((total, product) => {
+      return total + product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
+    }, 0);
+  };
+
+  const getLowStockItems = () => {
+    // Consider items with total quantity < 10 as low stock
+    return products.reduce((total, product) => {
+      const totalQuantity = product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
+      return total + (totalQuantity > 0 && totalQuantity < 10 ? 1 : 0);
+    }, 0);
+  };
 
   return (
     <div className="space-y-6">
@@ -31,7 +70,7 @@ const Dashboard = () => {
                     Total Items
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    0
+                    {loading ? '...' : getTotalItems()}
                   </dd>
                 </dl>
               </div>
@@ -53,7 +92,7 @@ const Dashboard = () => {
                     In Stock
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    0
+                    {loading ? '...' : getInStockItems()}
                   </dd>
                 </dl>
               </div>
@@ -75,7 +114,7 @@ const Dashboard = () => {
                     Low Stock
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    0
+                    {loading ? '...' : getLowStockItems()}
                   </dd>
                 </dl>
               </div>

@@ -4,6 +4,8 @@ import { useAuthStore } from './store/authStore';
 import Login from './pages/Login';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
+import Inventory from './pages/Inventory';
+import MovementHistory from './pages/MovementHistory';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -29,6 +31,8 @@ function App() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="movements" element={<MovementHistory />} />
         </Route>
         <Route 
           path="/" 
