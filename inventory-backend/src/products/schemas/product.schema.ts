@@ -25,6 +25,12 @@ export class Product {
 
   @Prop({ type: [ProductLocation], default: [] })
   locations: ProductLocation[];
+
+  @Prop({ type: Types.ObjectId, ref: 'ImportLocation' })
+  importLocationId: Types.ObjectId;
+
+  @Prop({ min: 0 })
+  sellingPrice: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

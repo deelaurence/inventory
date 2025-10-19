@@ -14,6 +14,12 @@ export interface Product {
   description: string;
   partsNumber: string;
   locations: ProductLocation[];
+  importLocationId?: {
+    _id: string;
+    name: string;
+    country?: string;
+  };
+  sellingPrice?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +30,8 @@ export interface CreateProductDto {
   quantity: number;
   unitPrice: number;
   locationId: string;
+  importLocationId?: string;
+  sellingPrice?: number;
 }
 
 export interface TransferProductDto {

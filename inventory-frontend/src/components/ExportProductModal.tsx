@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { productsApi, type ExportProductDto, type Product } from '../services/productsApi';
-import { type Location } from '../services/locationsApi';
+import { productsApi } from '../services/productsApi';
+import type { Location } from '../services/locationsApi';
+import type { Product } from '../services/productsApi';
+import Loader from './Loader';
 
 interface ExportProductModalProps {
   isOpen: boolean;
@@ -11,33 +13,41 @@ interface ExportProductModalProps {
 }
 
 const ExportProductModal = ({ isOpen, onClose, onSuccess, product, locations }: ExportProductModalProps) => {
-  const [formData, setFormData] = useState<ExportProductDto>({
-    locationId: '',
-    quantity: 0,
+  const [formData, setFormData] = useState({
+    fromLocation: '',
+    quantity: '',
+    notes: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [maxQuantity, setMaxQuantity] = useState(0);
+  const [availableQuantity, setAvailableQuantity] = useState(0);
 
   useEffect(() => {
-    if (product && formData.locationId) {
-      const location = product.locations.find(loc => loc.locationId._id === formData.locationId);
-      if (location) {
-        setMaxQuantity(location.quantity);
-      }
+    if (product && formData.fromLocation) {
+      const location = product.locations.find(loc => loc.locationId._id === formData.fromLocation);
+      setAvailableQuantity(location ? location.quantity : 0);
     }
-  }, [product, formData.locationId]);
+  }, [product, formData.fromLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!product) return;
-
     setLoading(true);
     setError('');
 
+    if (!product) return;
+
     try {
-      await productsApi.exportProduct(product._id, formData);
+      await productsApi.exportProduct(product._id, {
+        locationId: formData.fromLocation,
+        quantity: parseInt(formData.quantity)
+      });
+
       onSuccess();
+      setFormData({
+        fromLocation: '',
+        quantity: '',
+        notes: ''
+      });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to export product');
     } finally {
@@ -45,120 +55,177 @@ const ExportProductModal = ({ isOpen, onClose, onSuccess, product, locations }: 
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'quantity' ? Number(value) : value,
-    }));
-  };
-
-  const getAvailableLocations = () => {
-    if (!product) return [];
-    return product.locations.filter(loc => loc.quantity > 0);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
   if (!isOpen || !product) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div className="mt-3">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">
-              Export Product: {product.description}
-            </h3>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+          onClick={onClose}
+        />
+        
+        {/* Modal */}
+        <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Export Product</h2>
+              <p className="text-sm text-gray-600 mt-1">Remove items from inventory</p>
+            </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <span className="sr-only">Close</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          {/* Product Info */}
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">
-                  Warning
-                </h3>
-                <div className="mt-2 text-sm text-yellow-700">
-                  <p>This will permanently reduce the inventory quantity. This action cannot be undone.</p>
-                </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">{product.description}</h3>
+                <p className="text-sm text-gray-500">#{product.partsNumber}</p>
               </div>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Warning */}
+          <div className="px-6 py-4 bg-yellow-50 border-b border-yellow-200">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-yellow-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <h4 className="text-sm font-medium text-yellow-800">Warning</h4>
+                <p className="text-sm text-yellow-700 mt-1">
+                  This action will permanently reduce the inventory quantity. This cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <span className="text-sm text-red-800">{error}</span>
+                </div>
+              </div>
+            )}
+
             <div>
-              <label htmlFor="locationId" className="block text-sm font-medium text-gray-700">
-                Location
+              <label htmlFor="fromLocation" className="block text-sm font-medium text-gray-700 mb-2">
+                From Location *
               </label>
               <select
-                name="locationId"
-                id="locationId"
-                required
-                value={formData.locationId}
+                id="fromLocation"
+                name="fromLocation"
+                value={formData.fromLocation}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
               >
-                <option value="">Select location</option>
-                {getAvailableLocations().map((location) => (
-                  <option key={location.locationId._id} value={location.locationId._id}>
-                    {location.locationId.name} ({location.quantity} available)
-                  </option>
-                ))}
+                <option value="">Select location to export from</option>
+                {product.locations
+                  .filter(loc => loc.quantity > 0)
+                  .map((location) => {
+                    const locationName = locations.find(l => l._id === location.locationId._id)?.name || 'Unknown';
+                    return (
+                      <option key={location.locationId._id} value={location.locationId._id}>
+                        {locationName} ({location.quantity} available)
+                      </option>
+                    );
+                  })}
               </select>
             </div>
 
             <div>
-              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
-                Quantity to Export
+              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
+                Quantity to Export *
               </label>
-              <input
-                type="number"
-                name="quantity"
-                id="quantity"
-                min="1"
-                max={maxQuantity}
-                required
-                value={formData.quantity}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              />
-              {maxQuantity > 0 && (
-                <p className="mt-1 text-sm text-gray-500">
-                  Maximum: {maxQuantity}
-                </p>
-              )}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  id="quantity"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleChange}
+                  required
+                  min="1"
+                  max={availableQuantity}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                  placeholder="0"
+                />
+                <div className="text-sm text-gray-500 whitespace-nowrap">
+                  Max: {availableQuantity}
+                </div>
+              </div>
             </div>
 
-            {error && (
-              <div className="text-red-600 text-sm">{error}</div>
-            )}
+            <div>
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for Export *
+              </label>
+              <textarea
+                id="notes"
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                required
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors resize-none"
+                placeholder="Please provide a reason for this export (e.g., sold, damaged, returned to supplier)..."
+              />
+            </div>
 
+            {/* Actions */}
             <div className="flex justify-end space-x-3 pt-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={loading || !formData.locationId || formData.quantity <= 0}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                disabled={loading || availableQuantity === 0}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
               >
-                {loading ? 'Exporting...' : 'Export Product'}
+                {loading ? (
+                  <div className="flex items-center">
+                    <Loader size="sm" text="" color="red" className="mr-2" />
+                    Exporting...
+                  </div>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Export Product
+                  </>
+                )}
               </button>
             </div>
           </form>

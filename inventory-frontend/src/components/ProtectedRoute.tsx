@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import Loader from './Loader';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,7 +20,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // Wait for initialization to complete
   if (!isInitialized) {
     console.log('ProtectedRoute - Not initialized yet, showing loading');
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader size="lg" text="Initializing..." color="blue" />
+      </div>
+    );
   }
 
   if (!isAuthenticated) {

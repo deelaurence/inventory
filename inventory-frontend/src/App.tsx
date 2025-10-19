@@ -6,6 +6,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import MovementHistory from './pages/MovementHistory';
+import ImportLocations from './pages/ImportLocations';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="movements" element={<MovementHistory />} />
+          <Route path="import-locations" element={<ImportLocations />} />
         </Route>
         <Route 
           path="/" 

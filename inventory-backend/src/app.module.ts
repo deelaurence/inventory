@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { LocationsModule } from './locations/locations.module';
 import { ProductsModule } from './products/products.module';
 import { MovementsModule } from './movements/movements.module';
+import { ImportLocationsModule } from './import-locations/import-locations.module';
 import { LoggerMiddleware } from './middleware/logger.middleware';
 
 @Module({
@@ -21,6 +22,7 @@ import { LoggerMiddleware } from './middleware/logger.middleware';
     LocationsModule,
     ProductsModule,
     MovementsModule,
+    ImportLocationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

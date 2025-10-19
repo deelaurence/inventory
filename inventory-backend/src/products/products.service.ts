@@ -16,7 +16,7 @@ export class ProductsService {
   ) {}
 
   async create(createProductDto: CreateProductDto, userId: string): Promise<Product> {
-    const { description, partsNumber, quantity, unitPrice, locationId } = createProductDto;
+    const { description, partsNumber, quantity, unitPrice, locationId, importLocationId, sellingPrice } = createProductDto;
     
     // Check if product already exists
     const existingProduct = await this.productModel.findOne({ partsNumber }).exec();
@@ -59,6 +59,8 @@ export class ProductsService {
           quantity,
           unitPrice,
         }],
+        importLocationId: importLocationId ? new Types.ObjectId(importLocationId) : undefined,
+        sellingPrice,
       });
       
       const savedProduct = await product.save();
@@ -78,17 +80,26 @@ export class ProductsService {
   }
 
   async findAll(): Promise<Product[]> {
-    return this.productModel.find().populate('locations.locationId', 'name').exec();
+    return this.productModel.find()
+      .populate('locations.locationId', 'name')
+      .populate('importLocationId', 'name country')
+      .exec();
   }
 
   async findById(id: string): Promise<Product | null> {
-    return this.productModel.findById(id).populate('locations.locationId', 'name').exec();
+    return this.productModel.findById(id)
+      .populate('locations.locationId', 'name')
+      .populate('importLocationId', 'name country')
+      .exec();
   }
 
   async getProductsByLocation(locationId: string): Promise<Product[]> {
     return this.productModel.find({
       'locations.locationId': new Types.ObjectId(locationId)
-    }).populate('locations.locationId', 'name').exec();
+    })
+      .populate('locations.locationId', 'name')
+      .populate('importLocationId', 'name country')
+      .exec();
   }
 
   async updateQuantityAtLocation(productId: string, locationId: string, quantity: number): Promise<Product | null> {
