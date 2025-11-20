@@ -53,7 +53,7 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -63,10 +63,10 @@ const DashboardLayout = () => {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:relative lg:inset-0 flex-shrink-0 h-screen ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full overflow-hidden">
           {/* Logo */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
             <div className="flex items-center space-x-3">
@@ -140,9 +140,9 @@ const DashboardLayout = () => {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
         {/* Top bar */}
-        <div className="sticky top-0 z-40 bg-white border-b border-gray-200 lg:hidden">
+        <div className="sticky top-0 z-40 bg-white border-b border-gray-200 lg:hidden flex-shrink-0">
           <div className="flex items-center justify-between px-4 py-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -169,7 +169,7 @@ const DashboardLayout = () => {
         </div>
 
         {/* Page content */}
-        <main className="min-h-screen">
+        <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

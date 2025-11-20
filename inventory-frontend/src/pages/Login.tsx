@@ -19,15 +19,33 @@ const Login = () => {
     setError('');
 
     try {
+      console.log('[Login] Attempting login with email:', formData.email);
       const response = await api.post('/auth/login', {
         email: formData.email,
         password: formData.password
       });
       
-      const { user, token } = response.data;
+      console.log('[Login] Login response received:', response.data);
+      // Backend returns 'access_token' not 'token'
+      const { user, access_token } = response.data;
+      const token = access_token; // Use access_token as token
+      console.log('[Login] Calling login() with user:', user, 'token length:', token?.length);
       login(user, token);
+      
+      // Check auth state after login
+      const authState = useAuthStore.getState();
+      console.log('[Login] Auth state after login:', {
+        isAuthenticated: authState.isAuthenticated,
+        isInitialized: authState.isInitialized,
+        hasUser: !!authState.user,
+        hasToken: !!authState.token
+      });
+      
+      console.log('[Login] Navigating to /dashboard');
       navigate('/dashboard');
     } catch (err: any) {
+      console.error('[Login] Login error:', err);
+      console.error('[Login] Error response:', err.response?.data);
       setError(err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);

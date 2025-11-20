@@ -12,23 +12,45 @@ const Dashboard = () => {
   const [movementsLoading, setMovementsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[Dashboard] Component mounted, fetching data');
+    const authState = useAuthStore.getState();
+    console.log('[Dashboard] Auth state on mount:', {
+      isAuthenticated: authState.isAuthenticated,
+      hasUser: !!authState.user,
+      hasToken: !!authState.token,
+      tokenInStorage: !!localStorage.getItem('token')
+    });
     fetchData();
   }, []);
 
   const fetchData = async () => {
     try {
+      console.log('[Dashboard] Starting fetchData()');
       setLoading(true);
       setMovementsLoading(true);
       
-      const [productsData, movementsData] = await Promise.all([
-        productsApi.fetchProducts(),
-        movementsApi.fetchMovements()
-      ]);
+      const token = localStorage.getItem('token');
+      console.log('[Dashboard] Token before API calls:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
+      
+      console.log('[Dashboard] Calling productsApi.fetchProducts()');
+      const productsData = await productsApi.fetchProducts();
+      console.log('[Dashboard] Products fetched successfully, count:', productsData.length);
+      
+      console.log('[Dashboard] Calling movementsApi.fetchMovements()');
+      const movementsData = await movementsApi.fetchMovements();
+      console.log('[Dashboard] Movements fetched successfully, count:', movementsData.length);
       
       setProducts(productsData);
       setMovements(movementsData.slice(0, 5)); // Get latest 5 movements
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.log('[Dashboard] Data fetch completed successfully');
+    } catch (error: any) {
+      console.error('[Dashboard] Failed to fetch data:', error);
+      console.error('[Dashboard] Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
     } finally {
       setLoading(false);
       setMovementsLoading(false);
@@ -225,7 +247,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="px-4 sm:px-6 lg:px-8 py-6">
@@ -413,7 +435,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
