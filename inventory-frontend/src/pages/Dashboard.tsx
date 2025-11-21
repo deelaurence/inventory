@@ -80,7 +80,8 @@ const Dashboard = () => {
 
   const getTotalValue = () => {
     return products.reduce((total, product) => {
-      return total + product.locations.reduce((sum, loc) => sum + (loc.quantity * loc.unitPrice), 0);
+      const totalQuantity = product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
+      return total + (totalQuantity * product.unitPrice);
     }, 0);
   };
 
@@ -408,6 +409,15 @@ const Dashboard = () => {
                         {movement.notes && (
                           <div className="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-2">
                             "{movement.notes}"
+                          </div>
+                        )}
+                        {movement.movedBy && (
+                          <div className="mt-2 text-xs text-gray-500">
+                            <span>By: <span className="font-medium text-gray-700">
+                              {typeof movement.movedBy === 'object' 
+                                ? (movement.movedBy.name || movement.movedBy.email || 'Unknown')
+                                : 'Unknown'}
+                            </span></span>
                           </div>
                         )}
                       </div>

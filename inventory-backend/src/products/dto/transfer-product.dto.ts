@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsNotEmpty, IsPositive, IsMongoId } from 'class-validator';
+import { IsNumber, IsNotEmpty, IsPositive, IsMongoId } from 'class-validator';
 
 export class TransferProductDto {
   @IsMongoId()
@@ -10,8 +10,4 @@ export class TransferProductDto {
   @IsNumber()
   @IsPositive()
   quantity: number;
-
-  @IsNumber()
-  @IsPositive()
-  unitPrice: number;
 }

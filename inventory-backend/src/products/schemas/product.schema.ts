@@ -10,9 +10,15 @@ export class ProductLocation {
 
   @Prop({ required: true, min: 0 })
   quantity: number;
+}
+
+@Schema({ _id: false })
+export class PriceComparison {
+  @Prop({ required: true, type: Types.ObjectId, ref: 'ImportLocation' })
+  importLocationId: Types.ObjectId;
 
   @Prop({ required: true, min: 0 })
-  unitPrice: number;
+  price: number;
 }
 
 @Schema({ timestamps: true })
@@ -29,8 +35,14 @@ export class Product {
   @Prop({ type: Types.ObjectId, ref: 'ImportLocation' })
   importLocationId: Types.ObjectId;
 
+  @Prop({ required: true, min: 0 })
+  unitPrice: number;
+
   @Prop({ min: 0 })
   sellingPrice: number;
+
+  @Prop({ type: [PriceComparison], default: [] })
+  priceComparisons: PriceComparison[];
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

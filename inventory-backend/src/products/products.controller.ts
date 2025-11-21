@@ -3,6 +3,8 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { TransferProductDto } from './dto/transfer-product.dto';
 import { ExportProductDto } from './dto/export-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateProductInventoryDto } from './dto/update-product-inventory.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('products')
@@ -35,5 +37,19 @@ export class ProductsController {
   @Delete(':id/export')
   async export(@Param('id') id: string, @Body() exportDto: ExportProductDto, @Request() req) {
     return this.productsService.exportProduct(id, exportDto, req.user.sub);
+  }
+
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
+    return this.productsService.updateProduct(id, updateProductDto);
+  }
+
+  @Patch(':id/update-inventory')
+  async updateProductAndInventory(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateProductInventoryDto,
+    @Request() req
+  ) {
+    return this.productsService.updateProductAndInventory(id, updateDto, req.user.sub);
   }
 }

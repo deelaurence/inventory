@@ -4,6 +4,7 @@ import { useAuthStore } from './store/authStore';
 import Login from './pages/Login';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
+import Sell from './pages/Sell';
 import Inventory from './pages/Inventory';
 import MovementHistory from './pages/MovementHistory';
 import ImportLocations from './pages/ImportLocations';
@@ -32,6 +33,7 @@ function App() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="sell" element={<Sell />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="movements" element={<MovementHistory />} />
           <Route path="import-locations" element={<ImportLocations />} />

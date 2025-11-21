@@ -59,17 +59,17 @@ async function bootstrap() {
       return;
     }
 
-    // Create test users
+    // Create test users (admins)
     const users = [
-      { email: 'email@test.com', password: 'password123' },
-      { email: 'user2@test.com', password: 'password123' },
+      { name: 'Ejike', email: 'email@test.com', password: 'password123' },
+      { name: 'Divine', email: 'user2@test.com', password: 'password123' },
     ];
 
     for (const user of users) {
       const existingUser = await usersService.findByEmail(user.email);
       if (!existingUser) {
-        await usersService.create(user.email, user.password);
-        console.log(`Created user: ${user.email}`);
+        await usersService.create(user.name, user.email, user.password);
+        console.log(`Created user: ${user.name} (${user.email})`);
       }
     }
 

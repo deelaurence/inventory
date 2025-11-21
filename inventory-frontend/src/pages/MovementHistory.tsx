@@ -212,6 +212,16 @@ const MovementHistory = () => {
                         <span className="ml-2 text-gray-900">{movement.notes}</span>
                       </div>
                     )}
+                    {movement.movedBy && (
+                      <div className="text-sm">
+                        <span className="text-gray-500">Moved By:</span>
+                        <span className="ml-2 font-medium text-gray-900">
+                          {typeof movement.movedBy === 'object' 
+                            ? (movement.movedBy.name || movement.movedBy.email || 'Unknown')
+                            : 'Unknown'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -240,6 +250,9 @@ const MovementHistory = () => {
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Date
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Moved By
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Notes
@@ -298,6 +311,13 @@ const MovementHistory = () => {
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-900">
                             {formatDate(movement.createdAt)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-500">
+                            {movement.movedBy && typeof movement.movedBy === 'object' 
+                              ? (movement.movedBy.name || movement.movedBy.email || 'Unknown')
+                              : 'Unknown'}
                           </div>
                         </td>
                         <td className="px-6 py-4">

@@ -34,7 +34,7 @@ export class MovementsService {
       .populate('productId', 'description partsNumber')
       .populate('fromLocationId', 'name')
       .populate('toLocationId', 'name')
-      .populate('movedBy', 'email')
+      .populate('movedBy', 'name email')
       .sort({ timestamp: -1 })
       .exec();
   }
@@ -44,7 +44,7 @@ export class MovementsService {
       .find({ productId: new Types.ObjectId(productId) })
       .populate('fromLocationId', 'name')
       .populate('toLocationId', 'name')
-      .populate('movedBy', 'email')
+      .populate('movedBy', 'name email')
       .sort({ timestamp: -1 })
       .exec();
   }

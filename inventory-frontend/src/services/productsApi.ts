@@ -6,7 +6,15 @@ export interface ProductLocation {
     name: string;
   };
   quantity: number;
-  unitPrice: number;
+}
+
+export interface PriceComparison {
+  importLocationId: {
+    _id: string;
+    name: string;
+    country?: string;
+  };
+  price: number;
 }
 
 export interface Product {
@@ -19,7 +27,9 @@ export interface Product {
     name: string;
     country?: string;
   };
+  unitPrice: number;
   sellingPrice?: number;
+  priceComparisons?: PriceComparison[];
   createdAt: string;
   updatedAt: string;
 }
@@ -38,12 +48,31 @@ export interface TransferProductDto {
   fromLocationId: string;
   toLocationId: string;
   quantity: number;
-  unitPrice: number;
 }
 
 export interface ExportProductDto {
   locationId: string;
   quantity: number;
+}
+
+export interface PriceComparisonDto {
+  importLocationId: string;
+  price: number;
+}
+
+export interface UpdateProductDto {
+  description?: string;
+  unitPrice?: number;
+  sellingPrice?: number;
+  priceComparisons?: PriceComparisonDto[];
+}
+
+export interface UpdateProductInventoryDto {
+  unitPrice: number;
+  sellingPrice?: number;
+  quantity: number;
+  locationId: string;
+  importLocationId?: string;
 }
 
 export const productsApi = {
@@ -69,6 +98,17 @@ export const productsApi = {
 
   exportProduct: async (id: string, data: ExportProductDto): Promise<Product> => {
     const response = await api.delete(`/products/${id}/export`, { data });
+    return response.data;
+  },
+
+  updateProduct: async (id: string, data: UpdateProductDto): Promise<Product> => {
+    const response = await api.patch(`/products/${id}`, data);
+    return response.data;
+  },
+
+  updateProductAndInventory: async (data: UpdateProductInventoryDto & { productId: string }): Promise<Product> => {
+    const { productId, ...updateData } = data;
+    const response = await api.patch(`/products/${productId}/update-inventory`, updateData);
     return response.data;
   },
 };

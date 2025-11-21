@@ -5,6 +5,8 @@ import { Product, ProductDocument } from './schemas/product.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { TransferProductDto } from './dto/transfer-product.dto';
 import { ExportProductDto } from './dto/export-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateProductInventoryDto } from './dto/update-product-inventory.dto';
 import { MovementsService } from '../movements/movements.service';
 import { MovementType } from '../movements/schemas/movement.schema';
 
@@ -22,6 +24,11 @@ export class ProductsService {
     const existingProduct = await this.productModel.findOne({ partsNumber }).exec();
     
     if (existingProduct) {
+      // Update product-level unitPrice if provided
+      if (unitPrice) {
+        existingProduct.unitPrice = unitPrice;
+      }
+      
       // Add quantity to existing location or create new location entry
       const locationIndex = existingProduct.locations.findIndex(
         loc => loc.locationId.toString() === locationId
@@ -29,26 +36,31 @@ export class ProductsService {
       
       if (locationIndex >= 0) {
         existingProduct.locations[locationIndex].quantity += quantity;
-        existingProduct.locations[locationIndex].unitPrice = unitPrice;
       } else {
         existingProduct.locations.push({
           locationId: new Types.ObjectId(locationId),
           quantity,
-          unitPrice,
         });
       }
       
+      const savedProduct = await existingProduct.save();
+      
       await this.movementsService.createMovement({
-        productId: (existingProduct._id as any).toString(),
+        productId: (savedProduct._id as any).toString(),
         toLocationId: locationId,
         quantity,
-        unitPrice,
+        unitPrice: savedProduct.unitPrice,
         movedBy: userId,
         movementType: MovementType.IMPORT,
         notes: 'Product imported',
       });
       
-      return existingProduct.save();
+      // Return populated product
+      return this.productModel.findById(savedProduct._id)
+        .populate('locations.locationId', 'name')
+        .populate('importLocationId', 'name country')
+        .populate('priceComparisons.importLocationId', 'name country')
+        .exec() as Promise<Product>;
     } else {
       // Create new product
       const product = new this.productModel({
@@ -57,9 +69,9 @@ export class ProductsService {
         locations: [{
           locationId: new Types.ObjectId(locationId),
           quantity,
-          unitPrice,
         }],
         importLocationId: importLocationId ? new Types.ObjectId(importLocationId) : undefined,
+        unitPrice,
         sellingPrice,
       });
       
@@ -69,13 +81,18 @@ export class ProductsService {
         productId: (savedProduct._id as any).toString(),
         toLocationId: locationId,
         quantity,
-        unitPrice,
+        unitPrice: savedProduct.unitPrice,
         movedBy: userId,
         movementType: MovementType.IMPORT,
         notes: 'Product imported',
       });
       
-      return savedProduct;
+      // Return populated product
+      return this.productModel.findById(savedProduct._id)
+        .populate('locations.locationId', 'name')
+        .populate('importLocationId', 'name country')
+        .populate('priceComparisons.importLocationId', 'name country')
+        .exec() as Promise<Product>;
     }
   }
 
@@ -83,6 +100,7 @@ export class ProductsService {
     return this.productModel.find()
       .populate('locations.locationId', 'name')
       .populate('importLocationId', 'name country')
+      .populate('priceComparisons.importLocationId', 'name country')
       .exec();
   }
 
@@ -90,6 +108,7 @@ export class ProductsService {
     return this.productModel.findById(id)
       .populate('locations.locationId', 'name')
       .populate('importLocationId', 'name country')
+      .populate('priceComparisons.importLocationId', 'name country')
       .exec();
   }
 
@@ -99,6 +118,7 @@ export class ProductsService {
     })
       .populate('locations.locationId', 'name')
       .populate('importLocationId', 'name country')
+      .populate('priceComparisons.importLocationId', 'name country')
       .exec();
   }
 
@@ -118,7 +138,14 @@ export class ProductsService {
       throw new BadRequestException('Product not found at specified location');
     }
 
-    return product.save();
+    await product.save();
+    
+    // Return populated product
+    return this.productModel.findById(productId)
+      .populate('locations.locationId', 'name')
+      .populate('importLocationId', 'name country')
+      .populate('priceComparisons.importLocationId', 'name country')
+      .exec();
   }
 
   async transferProduct(productId: string, transferDto: TransferProductDto, userId: string): Promise<Product> {
@@ -127,7 +154,7 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    const { fromLocationId, toLocationId, quantity, unitPrice } = transferDto;
+    const { fromLocationId, toLocationId, quantity } = transferDto;
 
     // Find source location
     const fromLocationIndex = product.locations.findIndex(
@@ -152,12 +179,10 @@ export class ProductsService {
 
     if (toLocationIndex >= 0) {
       product.locations[toLocationIndex].quantity += quantity;
-      product.locations[toLocationIndex].unitPrice = unitPrice;
     } else {
       product.locations.push({
         locationId: new Types.ObjectId(toLocationId),
         quantity,
-        unitPrice,
       });
     }
 
@@ -169,13 +194,18 @@ export class ProductsService {
       fromLocationId: fromLocationId,
       toLocationId: toLocationId,
       quantity,
-      unitPrice,
+      unitPrice: savedProduct.unitPrice,
       movedBy: userId,
       movementType: MovementType.TRANSFER,
       notes: 'Product transferred between locations',
     });
 
-    return savedProduct;
+    // Return populated product
+    return this.productModel.findById(productId)
+      .populate('locations.locationId', 'name')
+      .populate('importLocationId', 'name country')
+      .populate('priceComparisons.importLocationId', 'name country')
+      .exec() as Promise<Product>;
   }
 
   async exportProduct(productId: string, exportDto: ExportProductDto, userId: string): Promise<Product> {
@@ -207,12 +237,141 @@ export class ProductsService {
       productId: productId,
       fromLocationId: locationId,
       quantity,
-      unitPrice: product.locations[locationIndex].unitPrice,
+      unitPrice: product.unitPrice,
       movedBy: userId,
       movementType: MovementType.EXPORT,
       notes: 'Product exported/removed from inventory',
     });
 
-    return savedProduct;
+    // Return populated product
+    return this.productModel.findById(productId)
+      .populate('locations.locationId', 'name')
+      .populate('importLocationId', 'name country')
+      .populate('priceComparisons.importLocationId', 'name country')
+      .exec() as Promise<Product>;
+  }
+
+  async updateProduct(productId: string, updateProductDto: UpdateProductDto): Promise<Product> {
+    const product = await this.productModel.findById(productId).exec();
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Build update object with $set and $unset operators
+    const updateData: any = {};
+    const unsetData: any = {};
+    
+    if (updateProductDto.description !== undefined) {
+      updateData.description = updateProductDto.description;
+    }
+
+    if (updateProductDto.unitPrice !== undefined) {
+      updateData.unitPrice = updateProductDto.unitPrice;
+    }
+
+    if (updateProductDto.priceComparisons !== undefined) {
+      updateData.priceComparisons = updateProductDto.priceComparisons.map(pc => ({
+        importLocationId: new Types.ObjectId(pc.importLocationId),
+        price: pc.price
+      }));
+    }
+
+    if (updateProductDto.sellingPrice !== undefined) {
+      if (updateProductDto.sellingPrice === null) {
+        // Use $unset to remove the field
+        unsetData.sellingPrice = '';
+      } else {
+        updateData.sellingPrice = updateProductDto.sellingPrice;
+      }
+    }
+
+    // Build the final update object
+    const finalUpdate: any = {};
+    if (Object.keys(updateData).length > 0) {
+      finalUpdate.$set = updateData;
+    }
+    if (Object.keys(unsetData).length > 0) {
+      finalUpdate.$unset = unsetData;
+    }
+
+    // Perform the update if there's anything to update
+    if (Object.keys(finalUpdate).length > 0) {
+      await this.productModel.findByIdAndUpdate(productId, finalUpdate).exec();
+    }
+
+    // Return the updated product with populated fields
+    const updatedProduct = await this.productModel.findById(productId)
+      .populate('locations.locationId', 'name')
+      .populate('importLocationId', 'name country')
+      .populate('priceComparisons.importLocationId', 'name country')
+      .exec();
+    
+    if (!updatedProduct) {
+      throw new NotFoundException('Product not found after update');
+    }
+
+    return updatedProduct;
+  }
+
+  async updateProductAndInventory(
+    productId: string,
+    updateDto: UpdateProductInventoryDto,
+    userId: string
+  ): Promise<Product> {
+    const product = await this.productModel.findById(productId).exec();
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Update product prices
+    product.unitPrice = updateDto.unitPrice;
+    if (updateDto.sellingPrice !== undefined) {
+      product.sellingPrice = updateDto.sellingPrice;
+    }
+
+    // Add quantity to existing location or create new location entry
+    const locationIndex = product.locations.findIndex(
+      loc => loc.locationId.toString() === updateDto.locationId
+    );
+
+    if (locationIndex >= 0) {
+      product.locations[locationIndex].quantity += updateDto.quantity;
+    } else {
+      product.locations.push({
+        locationId: new Types.ObjectId(updateDto.locationId),
+        quantity: updateDto.quantity,
+      });
+    }
+
+    // Update import location if provided
+    if (updateDto.importLocationId) {
+      product.importLocationId = new Types.ObjectId(updateDto.importLocationId);
+    }
+
+    const savedProduct = await product.save();
+
+    // Log movement
+    await this.movementsService.createMovement({
+      productId: productId,
+      toLocationId: updateDto.locationId,
+      quantity: updateDto.quantity,
+      unitPrice: savedProduct.unitPrice,
+      movedBy: userId,
+      movementType: MovementType.IMPORT,
+      notes: 'Product updated and inventory added',
+    });
+
+    // Return the updated product with populated fields
+    const updatedProduct = await this.productModel.findById(productId)
+      .populate('locations.locationId', 'name')
+      .populate('importLocationId', 'name country')
+      .populate('priceComparisons.importLocationId', 'name country')
+      .exec();
+    
+    if (!updatedProduct) {
+      throw new NotFoundException('Product not found after update');
+    }
+
+    return updatedProduct;
   }
 }

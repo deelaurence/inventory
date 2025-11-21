@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { productsApi } from '../services/productsApi';
+import { productsApi, type Product } from '../services/productsApi';
 import type { Location } from '../services/locationsApi';
 import { importLocationsApi, type ImportLocation } from '../services/importLocationsApi';
 import Loader from './Loader';
@@ -13,6 +13,7 @@ interface ImportProductModalProps {
 
 const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportProductModalProps) => {
   const [formData, setFormData] = useState({
+    selectedProductId: '',
     description: '',
     partsNumber: '',
     quantity: '',
@@ -24,10 +25,26 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [importLocations, setImportLocations] = useState<ImportLocation[]>([]);
+  const [existingProducts, setExistingProducts] = useState<Product[]>([]);
+  const [isEditingExisting, setIsEditingExisting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       fetchImportLocations();
+      fetchExistingProducts();
+    } else {
+      // Reset form when modal closes
+      setFormData({
+        selectedProductId: '',
+        description: '',
+        partsNumber: '',
+        quantity: '',
+        unitPrice: '',
+        importLocation: '',
+        importLocationId: '',
+        sellingPrice: ''
+      });
+      setIsEditingExisting(false);
     }
   }, [isOpen]);
 
@@ -40,24 +57,20 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
+  const fetchExistingProducts = async () => {
     try {
-      await productsApi.importProduct({
-        description: formData.description,
-        partsNumber: formData.partsNumber,
-        quantity: parseInt(formData.quantity),
-        unitPrice: parseFloat(formData.unitPrice),
-        locationId: formData.importLocation,
-        importLocationId: formData.importLocationId || undefined,
-        sellingPrice: formData.sellingPrice ? parseFloat(formData.sellingPrice) : undefined
-      });
+      const data = await productsApi.fetchProducts();
+      setExistingProducts(data);
+    } catch (err) {
+      console.error('Failed to fetch existing products:', err);
+    }
+  };
 
-      onSuccess();
+  const handleProductSelect = (productId: string) => {
+    if (!productId) {
+      // Reset form if no product selected
       setFormData({
+        selectedProductId: '',
         description: '',
         partsNumber: '',
         quantity: '',
@@ -66,6 +79,137 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
         importLocationId: '',
         sellingPrice: ''
       });
+      setIsEditingExisting(false);
+      return;
+    }
+
+    const selectedProduct = existingProducts.find(p => p._id === productId);
+    if (selectedProduct) {
+      setIsEditingExisting(true);
+      setFormData({
+        selectedProductId: productId,
+        description: selectedProduct.description || '',
+        partsNumber: selectedProduct.partsNumber || '',
+        quantity: '',
+        unitPrice: selectedProduct.unitPrice ? selectedProduct.unitPrice.toString() : '',
+        importLocation: '',
+        importLocationId: selectedProduct.importLocationId?._id || '',
+        sellingPrice: selectedProduct.sellingPrice ? selectedProduct.sellingPrice.toString() : ''
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    // Validate MongoDB ID format
+    const mongoIdRegex = /^[0-9a-fA-F]{24}$/;
+
+    // Validate and convert required fields
+    const quantity = parseInt(formData.quantity, 10);
+    const unitPrice = parseFloat(formData.unitPrice);
+
+    if (!formData.quantity || isNaN(quantity) || quantity <= 0) {
+      setError('Quantity must be a positive number');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.unitPrice || isNaN(unitPrice) || unitPrice <= 0) {
+      setError('Cost price must be a positive number');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.importLocation || formData.importLocation.trim() === '') {
+      setError('Storage location is required');
+      setLoading(false);
+      return;
+    }
+
+    // Validate MongoDB ID format for locationId
+    if (!mongoIdRegex.test(formData.importLocation.trim())) {
+      setError('Invalid storage location selected');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      if (isEditingExisting && formData.selectedProductId) {
+        // Update existing product: update prices and add inventory
+        const updateData: any = {
+          productId: formData.selectedProductId,
+          unitPrice: unitPrice,
+          quantity: quantity,
+          locationId: formData.importLocation.trim()
+        };
+
+        if (formData.sellingPrice && formData.sellingPrice.trim() !== '') {
+          const sellingPrice = parseFloat(formData.sellingPrice);
+          if (!isNaN(sellingPrice) && sellingPrice > 0) {
+            updateData.sellingPrice = sellingPrice;
+          }
+        }
+
+        if (formData.importLocationId && formData.importLocationId.trim() !== '') {
+          if (mongoIdRegex.test(formData.importLocationId.trim())) {
+            updateData.importLocationId = formData.importLocationId.trim();
+          }
+        }
+
+        await productsApi.updateProductAndInventory(updateData);
+      } else {
+        // Create new product
+        if (!formData.description || formData.description.trim() === '') {
+          setError('Description is required');
+          setLoading(false);
+          return;
+        }
+
+        if (!formData.partsNumber || formData.partsNumber.trim() === '') {
+          setError('Parts number is required');
+          setLoading(false);
+          return;
+        }
+
+        const createData: any = {
+          description: formData.description.trim(),
+          partsNumber: formData.partsNumber.trim(),
+          quantity: quantity,
+          unitPrice: unitPrice,
+          locationId: formData.importLocation.trim()
+        };
+
+        if (formData.sellingPrice && formData.sellingPrice.trim() !== '') {
+          const sellingPrice = parseFloat(formData.sellingPrice);
+          if (!isNaN(sellingPrice) && sellingPrice > 0) {
+            createData.sellingPrice = sellingPrice;
+          }
+        }
+
+        if (formData.importLocationId && formData.importLocationId.trim() !== '') {
+          if (mongoIdRegex.test(formData.importLocationId.trim())) {
+            createData.importLocationId = formData.importLocationId.trim();
+          }
+        }
+
+        await productsApi.importProduct(createData);
+      }
+
+      onSuccess();
+      setFormData({
+        selectedProductId: '',
+        description: '',
+        partsNumber: '',
+        quantity: '',
+        unitPrice: '',
+        importLocation: '',
+        importLocationId: '',
+        sellingPrice: ''
+      });
+      setIsEditingExisting(false);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to import product');
     } finally {
@@ -96,8 +240,14 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Import Product</h2>
-              <p className="text-sm text-gray-600 mt-1">Add a new product to your inventory</p>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {isEditingExisting ? 'Update Product & Add Inventory' : 'Import Product'}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {isEditingExisting 
+                  ? 'Update prices and add inventory to existing product'
+                  : 'Add a new product to your inventory'}
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -123,8 +273,45 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
             )}
 
             <div>
+              <label htmlFor="selectedProductId" className="block text-sm font-medium text-gray-700 mb-2">
+                Select Existing Product (Optional)
+              </label>
+              <select
+                id="selectedProductId"
+                name="selectedProductId"
+                value={formData.selectedProductId}
+                onChange={(e) => {
+                  handleProductSelect(e.target.value);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="">Create New Product</option>
+                {existingProducts.map((product) => (
+                  <option key={product._id} value={product._id}>
+                    {product.description} (#{product.partsNumber})
+                  </option>
+                ))}
+              </select>
+              {isEditingExisting && (
+                <div className="mt-1">
+                  <p className="text-xs text-blue-600 font-medium">
+                    ✓ Editing existing product - prices and inventory will be updated
+                  </p>
+                  {formData.description && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Product: {formData.description} (#{formData.partsNumber})
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
                 Product Description *
+                {isEditingExisting && (
+                  <span className="ml-2 text-xs text-gray-500 font-normal">(Read-only)</span>
+                )}
               </label>
               <input
                 type="text"
@@ -133,7 +320,10 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 value={formData.description}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                readOnly={isEditingExisting}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                  isEditingExisting ? 'bg-gray-50 text-gray-900 cursor-not-allowed border-gray-200' : ''
+                }`}
                 placeholder="Enter product description"
               />
             </div>
@@ -141,6 +331,9 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
             <div>
               <label htmlFor="partsNumber" className="block text-sm font-medium text-gray-700 mb-2">
                 Parts Number *
+                {isEditingExisting && (
+                  <span className="ml-2 text-xs text-gray-500 font-normal">(Read-only)</span>
+                )}
               </label>
               <input
                 type="text"
@@ -149,7 +342,10 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 value={formData.partsNumber}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                readOnly={isEditingExisting}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                  isEditingExisting ? 'bg-gray-50 text-gray-900 cursor-not-allowed border-gray-200' : ''
+                }`}
                 placeholder="Enter parts number"
               />
             </div>
@@ -174,7 +370,7 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
 
               <div>
                 <label htmlFor="unitPrice" className="block text-sm font-medium text-gray-700 mb-2">
-                  Unit Price *
+                  Cost Price (Unit Price) *
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -220,13 +416,19 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
             <div>
               <label htmlFor="importLocationId" className="block text-sm font-medium text-gray-700 mb-2">
                 Import Location
+                {isEditingExisting && (
+                  <span className="ml-2 text-xs text-gray-500 font-normal">(Read-only)</span>
+                )}
               </label>
               <select
                 id="importLocationId"
                 name="importLocationId"
                 value={formData.importLocationId}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                disabled={isEditingExisting}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                  isEditingExisting ? 'bg-gray-50 text-gray-900 cursor-not-allowed border-gray-200' : ''
+                }`}
               >
                 <option value="">Select import location (optional)</option>
                 {importLocations.map((location) => (
@@ -235,6 +437,11 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                   </option>
                 ))}
               </select>
+              {isEditingExisting && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Import location cannot be changed when updating existing product
+                </p>
+              )}
             </div>
 
             <div>
@@ -323,9 +530,13 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 ) : (
                   <>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      {isEditingExisting ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      )}
                     </svg>
-                    Import Product
+                    {isEditingExisting ? 'Update Product' : 'Import Product'}
                   </>
                 )}
               </button>

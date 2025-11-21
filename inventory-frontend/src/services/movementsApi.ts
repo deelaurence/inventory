@@ -19,6 +19,7 @@ export interface Movement {
   unitPrice: number;
   movedBy: {
     _id: string;
+    name: string;
     email: string;
   };
   movementType: 'IMPORT' | 'TRANSFER' | 'EXPORT';

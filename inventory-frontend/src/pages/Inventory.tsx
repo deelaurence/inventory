@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { productsApi, type Product } from '../services/productsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
 import ImportProductModal from '../components/ImportProductModal';
+import BulkImportModal from '../components/BulkImportModal';
+import ImportTypeModal from '../components/ImportTypeModal';
 import TransferProductModal from '../components/TransferProductModal';
 import ExportProductModal from '../components/ExportProductModal';
+import EditProductModal from '../components/EditProductModal';
 import Loader from '../components/Loader';
 
 const Inventory = () => {
@@ -11,9 +14,12 @@ const Inventory = () => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showImportTypeModal, setShowImportTypeModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
@@ -68,6 +74,21 @@ const Inventory = () => {
     setShowExportModal(true);
   };
 
+  const openEditModal = (product: Product, e?: React.MouseEvent) => {
+    // Prevent opening edit modal when clicking action buttons
+    if (e) {
+      e.stopPropagation();
+    }
+    setSelectedProduct(product);
+    setShowEditModal(true);
+  };
+
+  const handleEditSuccess = () => {
+    setShowEditModal(false);
+    setSelectedProduct(null);
+    fetchData();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -112,7 +133,7 @@ const Inventory = () => {
               <p className="text-sm text-gray-600 mt-1">Manage your products and stock levels</p>
             </div>
             <button
-              onClick={() => setShowImportModal(true)}
+              onClick={() => setShowImportTypeModal(true)}
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +157,7 @@ const Inventory = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No products yet</h3>
             <p className="text-gray-600 mb-6">Get started by adding your first product to the inventory</p>
             <button
-              onClick={() => setShowImportModal(true)}
+              onClick={() => setShowImportTypeModal(true)}
               className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,7 +171,11 @@ const Inventory = () => {
             {/* Mobile Cards View */}
             <div className="block sm:hidden space-y-3">
               {products.map((product) => (
-                <div key={product._id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                <div 
+                  key={product._id} 
+                  onClick={() => openEditModal(product)}
+                  className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 truncate">{product.description}</h3>
@@ -176,7 +201,10 @@ const Inventory = () => {
                     </div>
                     <div className="flex space-x-1 ml-2">
                       <button
-                        onClick={() => openTransferModal(product)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openTransferModal(product);
+                        }}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Transfer"
                       >
@@ -185,7 +213,10 @@ const Inventory = () => {
                         </svg>
                       </button>
                       <button
-                        onClick={() => openExportModal(product)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openExportModal(product);
+                        }}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Export"
                       >
@@ -239,7 +270,11 @@ const Inventory = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {products.map((product) => (
-                      <tr key={product._id} className="hover:bg-gray-50 transition-colors">
+                      <tr 
+                        key={product._id} 
+                        onClick={() => openEditModal(product)}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
                         <td className="px-6 py-4">
                           <div>
                             <div className="font-semibold text-gray-900">{product.description}</div>
@@ -276,7 +311,7 @@ const Inventory = () => {
                           </td>
                         ))}
                         <td className="px-6 py-4">
-                          <div className="flex justify-center space-x-2">
+                          <div className="flex justify-center space-x-2" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => openTransferModal(product)}
                               className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
@@ -308,9 +343,23 @@ const Inventory = () => {
       </div>
 
       {/* Modals */}
+      <ImportTypeModal
+        isOpen={showImportTypeModal}
+        onClose={() => setShowImportTypeModal(false)}
+        onSelectSingle={() => setShowImportModal(true)}
+        onSelectBulk={() => setShowBulkImportModal(true)}
+      />
+
       <ImportProductModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
+        onSuccess={handleImportSuccess}
+        locations={locations}
+      />
+
+      <BulkImportModal
+        isOpen={showBulkImportModal}
+        onClose={() => setShowBulkImportModal(false)}
         onSuccess={handleImportSuccess}
         locations={locations}
       />
@@ -335,6 +384,16 @@ const Inventory = () => {
         onSuccess={handleExportSuccess}
         product={selectedProduct}
         locations={locations}
+      />
+
+      <EditProductModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedProduct(null);
+        }}
+        onSuccess={handleEditSuccess}
+        product={selectedProduct}
       />
     </div>
   );

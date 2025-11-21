@@ -17,7 +17,6 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
     fromLocation: '',
     toLocation: '',
     quantity: '',
-    unitPrice: '',
     notes: ''
   });
   const [loading, setLoading] = useState(false);
@@ -29,10 +28,6 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
       const location = product.locations.find(loc => loc.locationId._id === formData.fromLocation);
       if (location) {
         setAvailableQuantity(location.quantity);
-        setFormData(prev => ({
-          ...prev,
-          unitPrice: location.unitPrice.toString()
-        }));
       } else {
         setAvailableQuantity(0);
       }
@@ -50,8 +45,7 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
       await productsApi.transferProduct(product._id, {
         fromLocationId: formData.fromLocation,
         toLocationId: formData.toLocation,
-        quantity: parseInt(formData.quantity),
-        unitPrice: parseFloat(formData.unitPrice)
+        quantity: parseInt(formData.quantity)
       });
 
       onSuccess();
@@ -59,7 +53,6 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
         fromLocation: '',
         toLocation: '',
         quantity: '',
-        unitPrice: '',
         notes: ''
       });
     } catch (err: any) {
@@ -182,50 +175,25 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
-                  Quantity *
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="number"
-                    id="quantity"
-                    name="quantity"
-                    value={formData.quantity}
-                    onChange={handleChange}
-                    required
-                    min="1"
-                    max={availableQuantity}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="0"
-                  />
-                  <div className="text-sm text-gray-500 whitespace-nowrap">
-                    Max: {availableQuantity}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="unitPrice" className="block text-sm font-medium text-gray-700 mb-2">
-                  Unit Price *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 text-sm">₦</span>
-                  </div>
-                  <input
-                    type="number"
-                    id="unitPrice"
-                    name="unitPrice"
-                    value={formData.unitPrice}
-                    onChange={handleChange}
-                    required
-                    min="0"
-                    step="0.01"
-                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="0.00"
-                  />
+            <div>
+              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
+                Quantity *
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  id="quantity"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleChange}
+                  required
+                  min="1"
+                  max={availableQuantity}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="0"
+                />
+                <div className="text-sm text-gray-500 whitespace-nowrap">
+                  Max: {availableQuantity}
                 </div>
               </div>
             </div>
