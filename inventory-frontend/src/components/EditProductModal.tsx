@@ -20,7 +20,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showCostPriceEdit, setShowCostPriceEdit] = useState(false);
-  const [priceComparisons, setPriceComparisons] = useState<PriceComparisonDto[]>([]);
+  const [priceComparisons, setPriceComparisons] = useState<Array<{ importLocationId: string; price: string }>>([]);
   const [importLocations, setImportLocations] = useState<ImportLocation[]>([]);
   const [showAddPriceComparison, setShowAddPriceComparison] = useState(false);
   const [newPriceComparison, setNewPriceComparison] = useState({
@@ -82,7 +82,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
     }
 
     try {
-      const updateData: { description: string; unitPrice?: number; sellingPrice?: number | null } = {
+      const updateData: { description: string; unitPrice?: number; sellingPrice?: number | null; priceComparisons?: PriceComparisonDto[] } = {
         description: formData.description
       };
       
@@ -94,7 +94,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
       // If sellingPrice field is empty, send null to remove it
       // If it has a value, parse and send it
       if (formData.sellingPrice === '') {
-        updateData.sellingPrice = null as any;
+        updateData.sellingPrice = null;
       } else if (formData.sellingPrice) {
         updateData.sellingPrice = parseFloat(formData.sellingPrice);
       }
@@ -146,7 +146,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
 
     setPriceComparisons([...priceComparisons, {
       importLocationId: newPriceComparison.importLocationId,
-      price: newPriceComparison.price
+      price: newPriceComparison.price // Keep as string in state, convert to number when submitting
     }]);
 
     setNewPriceComparison({
@@ -442,7 +442,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
                           {getImportLocationName(pc.importLocationId)}
                         </div>
                         <div className="text-sm text-gray-600">
-                          ₦{parseFloat(pc.price).toLocaleString()}
+                          ₦{Number(pc.price).toLocaleString()}
                         </div>
                       </div>
                       <button

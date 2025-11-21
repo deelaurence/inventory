@@ -142,9 +142,9 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
                     };
                   })}
                 value={formData.fromLocation}
-                onChange={(value) => setFormData(prev => ({ ...prev, fromLocation: value }))}
-                getOptionLabel={(location: any) => `${location.displayName} (${location.quantity} available)`}
-                getOptionValue={(location: any) => location.locationId._id}
+                onChange={(value: string) => setFormData(prev => ({ ...prev, fromLocation: value }))}
+                getOptionLabel={(location: { locationId: { _id: string }; displayName: string; quantity: number }) => `${location.displayName} (${location.quantity} available)`}
+                getOptionValue={(location: { locationId: { _id: string }; displayName: string; quantity: number }) => location.locationId._id}
                 placeholder="Select source location"
                 limit={50}
               />
@@ -157,7 +157,7 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
               <SearchableSelect
                 options={locations.filter(loc => loc._id !== formData.fromLocation)}
                 value={formData.toLocation}
-                onChange={(value) => setFormData(prev => ({ ...prev, toLocation: value }))}
+                onChange={(value: string) => setFormData(prev => ({ ...prev, toLocation: value }))}
                 getOptionLabel={(location) => location.name}
                 getOptionValue={(location) => location._id}
                 placeholder="Select destination location"

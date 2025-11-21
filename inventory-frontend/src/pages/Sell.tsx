@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { productsApi, type Product } from '../services/productsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
-import { salesApi, type Sale } from '../services/salesApi';
+import { salesApi } from '../services/salesApi';
 import Loader from '../components/Loader';
 import SearchableSelect from '../components/SearchableSelect';
 
@@ -18,9 +18,9 @@ const Sell = () => {
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
   
   // Pagination states for products
-  const [productsPage, setProductsPage] = useState(1);
+  const [productsPage] = useState(1);
   const [productsLimit] = useState(50);
-  const [productsSearch, setProductsSearch] = useState('');
+  const [productsSearch] = useState('');
   
   // Pagination states for sales
   const [salesPage, setSalesPage] = useState(1);
@@ -84,8 +84,8 @@ const Sell = () => {
         if (location) {
           setAvailableQuantity(location.quantity);
           // Set suggested price if product has selling price
-          if (product.sellingPrice && !formData.price) {
-            setFormData(prev => ({ ...prev, price: product.sellingPrice.toString() }));
+          if (product.sellingPrice !== undefined && product.sellingPrice !== null && !formData.price) {
+            setFormData(prev => ({ ...prev, price: product.sellingPrice!.toString() }));
           }
         } else {
           setAvailableQuantity(0);
@@ -625,7 +625,7 @@ const Sell = () => {
                 >
                   {submitting ? (
                     <>
-                      <Loader size="sm" text="" color="white" className="mr-2" />
+                      <Loader size="sm" text="" color="blue" className="mr-2" />
                       Processing...
                     </>
                   ) : (

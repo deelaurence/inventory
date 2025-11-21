@@ -3,6 +3,7 @@ import { productsApi } from '../services/productsApi';
 import type { Location } from '../services/locationsApi';
 import type { Product } from '../services/productsApi';
 import Loader from './Loader';
+import SearchableSelect from './SearchableSelect';
 
 interface ExportProductModalProps {
   isOpen: boolean;
@@ -150,8 +151,8 @@ const ExportProductModal = ({ isOpen, onClose, onSuccess, product, locations }: 
                   })}
                 value={formData.fromLocation}
                 onChange={(value) => setFormData(prev => ({ ...prev, fromLocation: value }))}
-                getOptionLabel={(location: any) => `${location.displayName} (${location.quantity} available)`}
-                getOptionValue={(location: any) => location.locationId._id}
+                getOptionLabel={(location: { locationId: { _id: string }; displayName: string; quantity: number }) => `${location.displayName} (${location.quantity} available)`}
+                getOptionValue={(location: { locationId: { _id: string }; displayName: string; quantity: number }) => location.locationId._id}
                 placeholder="Select location to export from"
                 limit={50}
               />
