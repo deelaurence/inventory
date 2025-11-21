@@ -6,6 +6,7 @@ import { CreateSaleDto } from './dto/create-sale.dto';
 import { ProductsService } from '../products/products.service';
 import { MovementsService } from '../movements/movements.service';
 import { MovementType } from '../movements/schemas/movement.schema';
+import { PaginationDto, PaginatedResponse } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class SalesService {
@@ -92,13 +93,64 @@ export class SalesService {
     return savedSale;
   }
 
-  async findAll(): Promise<Sale[]> {
-    return this.saleModel.find()
+  async findAll(paginationDto?: PaginationDto): Promise<PaginatedResponse<Sale>> {
+    const page = paginationDto?.page || 1;
+    const limit = paginationDto?.limit || 50;
+    const skip = (page - 1) * limit;
+
+    // Build query
+    const query: any = {};
+
+    // Date filtering
+    if (paginationDto?.startDate || paginationDto?.endDate) {
+      query.soldAt = {};
+      if (paginationDto.startDate) {
+        query.soldAt.$gte = new Date(paginationDto.startDate);
+      }
+      if (paginationDto.endDate) {
+        const endDate = new Date(paginationDto.endDate);
+        endDate.setHours(23, 59, 59, 999); // End of day
+        query.soldAt.$lte = endDate;
+      }
+    }
+
+    // Get all sales first (for search filtering)
+    let salesQuery = this.saleModel
+      .find(query)
       .populate('productId', 'description partsNumber')
       .populate('locationId', 'name')
       .populate('soldBy', 'name email')
-      .sort({ soldAt: -1 })
-      .exec();
+      .sort({ soldAt: -1 });
+
+    // If search is provided, we need to filter after population
+    let allSales = await salesQuery.exec();
+    
+    if (paginationDto?.search) {
+      const searchLower = paginationDto.search.toLowerCase();
+      allSales = allSales.filter(sale => {
+        const product = sale.productId as any;
+        if (product) {
+          const description = (product.description || '').toLowerCase();
+          const partsNumber = (product.partsNumber || '').toLowerCase();
+          return description.includes(searchLower) || partsNumber.includes(searchLower);
+        }
+        return false;
+      });
+    }
+
+    // Get total count
+    const total = allSales.length;
+
+    // Apply pagination
+    const data = allSales.slice(skip, skip + limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string): Promise<Sale | null> {

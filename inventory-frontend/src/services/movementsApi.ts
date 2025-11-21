@@ -29,9 +29,25 @@ export interface Movement {
   updatedAt: string;
 }
 
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export const movementsApi = {
-  fetchMovements: async (): Promise<Movement[]> => {
-    const response = await api.get('/movements');
+  fetchMovements: async (params?: PaginationParams): Promise<PaginatedResponse<Movement>> => {
+    const response = await api.get('/movements', { params });
     return response.data;
   },
 

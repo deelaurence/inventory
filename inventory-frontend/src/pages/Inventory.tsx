@@ -21,25 +21,73 @@ const Inventory = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  
+  // Search, filter, and pagination states
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // For immediate UI update
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Debounce search - wait 3 seconds after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1); // Reset to first page on search
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [page, search, startDate, endDate]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [productsData, locationsData] = await Promise.all([
-        productsApi.fetchProducts(),
+      const [productsResponse, locationsData] = await Promise.all([
+        productsApi.fetchProducts({
+          page,
+          limit,
+          search: search || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        }),
         locationsApi.fetchLocations(),
       ]);
-      setProducts(productsData);
+      // Extract data array from paginated response
+      setProducts(productsResponse.data);
+      setTotal(productsResponse.total);
+      setTotalPages(productsResponse.totalPages);
       setLocations(locationsData);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value); // Update input immediately for UI
+    // Search will be triggered after 3 seconds via useEffect
+  };
+
+  const handleDateFilter = (start: string, end: string) => {
+    setStartDate(start);
+    setEndDate(end);
+    setPage(1); // Reset to first page on filter
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setSearchInput('');
+    setStartDate('');
+    setEndDate('');
+    setPage(1);
   };
 
   const getQuantityAtLocation = (product: Product, locationId: string): number => {
@@ -147,6 +195,65 @@ const Inventory = () => {
 
       {/* Content */}
       <div className="px-4 sm:px-6 lg:px-8 py-6">
+        {/* Search and Filters */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Search */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search Product</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Search by name or parts number..."
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {searchInput !== search && (
+                  <p className="mt-1 text-xs text-gray-500">Searching in 3 seconds...</p>
+                )}
+              </div>
+            </div>
+
+            {/* Start Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => handleDateFilter(e.target.value, endDate)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* End Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => handleDateFilter(startDate, e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Clear Filters */}
+            <div className="flex items-end">
+              <button
+                onClick={clearFilters}
+                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
+        </div>
+
         {products.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
@@ -337,6 +444,60 @@ const Inventory = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-between bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="text-sm text-gray-700">
+              Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to{' '}
+              <span className="font-medium">{Math.min(page * limit, total)}</span> of{' '}
+              <span className="font-medium">{total}</span> results
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        page === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
             </div>
           </div>
         )}

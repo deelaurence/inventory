@@ -3,6 +3,7 @@ import { productsApi } from '../services/productsApi';
 import type { Location } from '../services/locationsApi';
 import type { Product } from '../services/productsApi';
 import Loader from './Loader';
+import SearchableSelect from './SearchableSelect';
 
 interface TransferProductModalProps {
   isOpen: boolean;
@@ -130,49 +131,38 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
               <label htmlFor="fromLocation" className="block text-sm font-medium text-gray-700 mb-2">
                 From Location *
               </label>
-              <select
-                id="fromLocation"
-                name="fromLocation"
-                value={formData.fromLocation}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="">Select source location</option>
-                {product.locations
+              <SearchableSelect
+                options={product.locations
                   .filter(loc => loc.quantity > 0)
-                  .map((location) => {
+                  .map(location => {
                     const locationName = locations.find(l => l._id === location.locationId._id)?.name || 'Unknown';
-                    return (
-                      <option key={location.locationId._id} value={location.locationId._id}>
-                        {locationName} ({location.quantity} available)
-                      </option>
-                    );
+                    return {
+                      ...location,
+                      displayName: locationName,
+                    };
                   })}
-              </select>
+                value={formData.fromLocation}
+                onChange={(value) => setFormData(prev => ({ ...prev, fromLocation: value }))}
+                getOptionLabel={(location: any) => `${location.displayName} (${location.quantity} available)`}
+                getOptionValue={(location: any) => location.locationId._id}
+                placeholder="Select source location"
+                limit={50}
+              />
             </div>
 
             <div>
               <label htmlFor="toLocation" className="block text-sm font-medium text-gray-700 mb-2">
                 To Location *
               </label>
-              <select
-                id="toLocation"
-                name="toLocation"
+              <SearchableSelect
+                options={locations.filter(loc => loc._id !== formData.fromLocation)}
                 value={formData.toLocation}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="">Select destination location</option>
-                {locations
-                  .filter(loc => loc._id !== formData.fromLocation)
-                  .map((location) => (
-                    <option key={location._id} value={location._id}>
-                      {location.name}
-                    </option>
-                  ))}
-              </select>
+                onChange={(value) => setFormData(prev => ({ ...prev, toLocation: value }))}
+                getOptionLabel={(location) => location.name}
+                getOptionValue={(location) => location._id}
+                placeholder="Select destination location"
+                limit={50}
+              />
             </div>
 
             <div>

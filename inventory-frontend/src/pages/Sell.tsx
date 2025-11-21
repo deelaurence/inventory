@@ -3,6 +3,7 @@ import { productsApi, type Product } from '../services/productsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
 import { salesApi, type Sale } from '../services/salesApi';
 import Loader from '../components/Loader';
+import SearchableSelect from '../components/SearchableSelect';
 
 const Sell = () => {
   const [activeTab, setActiveTab] = useState<'sell' | 'sales'>('sell');
@@ -15,6 +16,21 @@ const Sell = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  
+  // Pagination states for products
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsLimit] = useState(50);
+  const [productsSearch, setProductsSearch] = useState('');
+  
+  // Pagination states for sales
+  const [salesPage, setSalesPage] = useState(1);
+  const [salesLimit] = useState(50);
+  const [salesSearch, setSalesSearch] = useState('');
+  const [salesSearchInput, setSalesSearchInput] = useState(''); // For immediate UI update
+  const [salesStartDate, setSalesStartDate] = useState('');
+  const [salesEndDate, setSalesEndDate] = useState('');
+  const [salesTotal, setSalesTotal] = useState(0);
+  const [salesTotalPages, setSalesTotalPages] = useState(0);
 
   const [formData, setFormData] = useState({
     productId: '',
@@ -39,11 +55,23 @@ const Sell = () => {
     fetchData();
   }, []);
 
+  // Debounce sales search - wait 3 seconds after user stops typing
+  useEffect(() => {
+    if (activeTab === 'sales') {
+      const timer = setTimeout(() => {
+        setSalesSearch(salesSearchInput);
+        setSalesPage(1); // Reset to first page on search
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [salesSearchInput, activeTab]);
+
   useEffect(() => {
     if (activeTab === 'sales') {
       fetchSales();
     }
-  }, [activeTab]);
+  }, [activeTab, salesPage, salesSearch, salesStartDate, salesEndDate]);
 
   useEffect(() => {
     if (formData.productId && formData.locationId) {
@@ -72,12 +100,16 @@ const Sell = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [productsData, locationsData] = await Promise.all([
-        productsApi.fetchProducts(),
+      const [productsResponse, locationsData] = await Promise.all([
+        productsApi.fetchProducts({
+          page: productsPage,
+          limit: productsLimit,
+          search: productsSearch || undefined,
+        }),
         locationsApi.fetchLocations(),
       ]);
-      // Store all products, we'll filter by location when location is selected
-      setProducts(productsData);
+      // Store products from paginated response
+      setProducts(productsResponse.data);
       setLocations(locationsData);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch data');
@@ -89,13 +121,40 @@ const Sell = () => {
   const fetchSales = async () => {
     try {
       setSalesLoading(true);
-      const salesData = await salesApi.fetchSales();
-      setSales(salesData);
+      const salesResponse = await salesApi.fetchSales({
+        page: salesPage,
+        limit: salesLimit,
+        search: salesSearch || undefined,
+        startDate: salesStartDate || undefined,
+        endDate: salesEndDate || undefined,
+      });
+      setSales(salesResponse.data);
+      setSalesTotal(salesResponse.total);
+      setSalesTotalPages(salesResponse.totalPages);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch sales');
     } finally {
       setSalesLoading(false);
     }
+  };
+
+  const handleSalesSearchChange = (value: string) => {
+    setSalesSearchInput(value); // Update input immediately for UI
+    // Search will be triggered after 3 seconds via useEffect
+  };
+
+  const handleSalesDateFilter = (start: string, end: string) => {
+    setSalesStartDate(start);
+    setSalesEndDate(end);
+    setSalesPage(1);
+  };
+
+  const clearSalesFilters = () => {
+    setSalesSearch('');
+    setSalesSearchInput('');
+    setSalesStartDate('');
+    setSalesEndDate('');
+    setSalesPage(1);
   };
 
   // Get available products for selected location
@@ -252,9 +311,9 @@ const Sell = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                     Sales List
-                    {sales.length > 0 && (
+                    {salesTotal > 0 && (
                       <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                        {sales.length}
+                        {salesTotal}
                       </span>
                     )}
                   </div>
@@ -295,15 +354,13 @@ const Sell = () => {
                 <label htmlFor="locationId" className="block text-sm font-medium text-gray-700 mb-2">
                   Shop/Location *
                 </label>
-                <select
-                  id="locationId"
-                  name="locationId"
+                <SearchableSelect
+                  options={locations}
                   value={formData.locationId}
-                  onChange={(e) => {
-                    handleChange(e);
-                    // Reset product when location changes
+                  onChange={(value) => {
                     setFormData(prev => ({
                       ...prev,
+                      locationId: value,
                       productId: '',
                       quantity: '',
                       price: ''
@@ -311,16 +368,11 @@ const Sell = () => {
                     setSelectedProduct(null);
                     setAvailableQuantity(0);
                   }}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="">Select shop/location...</option>
-                  {locations.map((location) => (
-                    <option key={location._id} value={location._id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
+                  getOptionLabel={(location) => location.name}
+                  getOptionValue={(location) => location._id}
+                  placeholder="Select shop/location..."
+                  limit={50}
+                />
               </div>
 
               {/* Product Selection */}
@@ -328,26 +380,20 @@ const Sell = () => {
                 <label htmlFor="productId" className="block text-sm font-medium text-gray-700 mb-2">
                   Product *
                 </label>
-                <select
-                  id="productId"
-                  name="productId"
+                <SearchableSelect
+                  options={getAvailableProducts()}
                   value={formData.productId}
-                  onChange={handleChange}
-                  required
-                  disabled={!formData.locationId}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">Select a product...</option>
-                  {getAvailableProducts().map((product) => {
+                  onChange={(value) => setFormData(prev => ({ ...prev, productId: value }))}
+                  getOptionLabel={(product) => {
                     const location = product.locations.find(loc => loc.locationId._id === formData.locationId);
                     const stock = location ? location.quantity : 0;
-                    return (
-                      <option key={product._id} value={product._id}>
-                        {product.description} (#{product.partsNumber}) - {stock} in stock
-                      </option>
-                    );
-                  })}
-                </select>
+                    return `${product.description} (#${product.partsNumber}) - ${stock} in stock`;
+                  }}
+                  getOptionValue={(product) => product._id}
+                  placeholder="Select a product..."
+                  disabled={!formData.locationId}
+                  limit={50}
+                />
                 {!formData.locationId && (
                   <p className="mt-1 text-xs text-gray-500">
                     Please select a location first to see available products
@@ -617,6 +663,65 @@ const Sell = () => {
                   </button>
                 </div>
 
+                {/* Search and Filters */}
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Search */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Search Product</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                        <input
+                          type="text"
+                          value={salesSearchInput}
+                          onChange={(e) => handleSalesSearchChange(e.target.value)}
+                          placeholder="Search by product name..."
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        {salesSearchInput !== salesSearch && (
+                          <p className="mt-1 text-xs text-gray-500">Searching in 3 seconds...</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Start Date */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                      <input
+                        type="date"
+                        value={salesStartDate}
+                        onChange={(e) => handleSalesDateFilter(e.target.value, salesEndDate)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    {/* End Date */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                      <input
+                        type="date"
+                        value={salesEndDate}
+                        onChange={(e) => handleSalesDateFilter(salesStartDate, e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    {/* Clear Filters */}
+                    <div className="flex items-end">
+                      <button
+                        onClick={clearSalesFilters}
+                        className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {salesLoading ? (
                   <div className="flex justify-center py-12">
                     <Loader size="md" text="Loading sales..." color="blue" />
@@ -734,6 +839,60 @@ const Sell = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {salesTotalPages > 1 && (
+                  <div className="mt-6 flex items-center justify-between bg-gray-50 rounded-xl border border-gray-200 p-4">
+                    <div className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{(salesPage - 1) * salesLimit + 1}</span> to{' '}
+                      <span className="font-medium">{Math.min(salesPage * salesLimit, salesTotal)}</span> of{' '}
+                      <span className="font-medium">{salesTotal}</span> results
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setSalesPage(p => Math.max(1, p - 1))}
+                        disabled={salesPage === 1}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, salesTotalPages) }, (_, i) => {
+                          let pageNum;
+                          if (salesTotalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (salesPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (salesPage >= salesTotalPages - 2) {
+                            pageNum = salesTotalPages - 4 + i;
+                          } else {
+                            pageNum = salesPage - 2 + i;
+                          }
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setSalesPage(pageNum)}
+                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                salesPage === pageNum
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => setSalesPage(p => Math.min(salesTotalPages, p + 1))}
+                        disabled={salesPage === salesTotalPages}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

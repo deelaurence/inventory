@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { TransferProductDto } from './dto/transfer-product.dto';
@@ -6,6 +6,7 @@ import { ExportProductDto } from './dto/export-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductInventoryDto } from './dto/update-product-inventory.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard)
@@ -19,9 +20,9 @@ export class ProductsController {
   }
 
   @Get()
-  async findAll(@Request() req) {
+  async findAll(@Query() paginationDto: PaginationDto, @Request() req) {
     console.log('ProductsController - GET /products - User:', req.user);
-    return this.productsService.findAll();
+    return this.productsService.findAll(paginationDto);
   }
 
   @Get(':id')

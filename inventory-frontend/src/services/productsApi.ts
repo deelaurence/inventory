@@ -75,9 +75,25 @@ export interface UpdateProductInventoryDto {
   importLocationId?: string;
 }
 
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export const productsApi = {
-  fetchProducts: async (): Promise<Product[]> => {
-    const response = await api.get('/products');
+  fetchProducts: async (params?: PaginationParams): Promise<PaginatedResponse<Product>> => {
+    const response = await api.get('/products', { params });
     return response.data;
   },
 

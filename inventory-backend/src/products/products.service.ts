@@ -9,6 +9,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductInventoryDto } from './dto/update-product-inventory.dto';
 import { MovementsService } from '../movements/movements.service';
 import { MovementType } from '../movements/schemas/movement.schema';
+import { PaginationDto, PaginatedResponse } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class ProductsService {
@@ -96,12 +97,56 @@ export class ProductsService {
     }
   }
 
-  async findAll(): Promise<Product[]> {
-    return this.productModel.find()
+  async findAll(paginationDto?: PaginationDto): Promise<PaginatedResponse<Product>> {
+    const page = paginationDto?.page || 1;
+    const limit = paginationDto?.limit || 50;
+    const skip = (page - 1) * limit;
+
+    // Build query
+    const query: any = {};
+
+    // Date filtering (on createdAt)
+    if (paginationDto?.startDate || paginationDto?.endDate) {
+      query.createdAt = {};
+      if (paginationDto.startDate) {
+        query.createdAt.$gte = new Date(paginationDto.startDate);
+      }
+      if (paginationDto.endDate) {
+        const endDate = new Date(paginationDto.endDate);
+        endDate.setHours(23, 59, 59, 999); // End of day
+        query.createdAt.$lte = endDate;
+      }
+    }
+
+    // Search by product name/description or parts number
+    if (paginationDto?.search) {
+      query.$or = [
+        { description: { $regex: paginationDto.search, $options: 'i' } },
+        { partsNumber: { $regex: paginationDto.search, $options: 'i' } },
+      ];
+    }
+
+    // Get total count
+    const total = await this.productModel.countDocuments(query).exec();
+
+    // Get paginated data
+    const data = await this.productModel
+      .find(query)
       .populate('locations.locationId', 'name')
       .populate('importLocationId', 'name country')
       .populate('priceComparisons.importLocationId', 'name country')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .exec();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string): Promise<Product | null> {

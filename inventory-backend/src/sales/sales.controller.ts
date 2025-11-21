@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('sales')
 @UseGuards(JwtAuthGuard)
@@ -14,8 +15,8 @@ export class SalesController {
   }
 
   @Get()
-  async findAll(@Request() req) {
-    return this.salesService.findAll();
+  async findAll(@Query() paginationDto: PaginationDto, @Request() req) {
+    return this.salesService.findAll(paginationDto);
   }
 
   @Get(':id')

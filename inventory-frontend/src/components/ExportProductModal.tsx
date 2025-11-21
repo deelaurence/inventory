@@ -138,26 +138,23 @@ const ExportProductModal = ({ isOpen, onClose, onSuccess, product, locations }: 
               <label htmlFor="fromLocation" className="block text-sm font-medium text-gray-700 mb-2">
                 From Location *
               </label>
-              <select
-                id="fromLocation"
-                name="fromLocation"
-                value={formData.fromLocation}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
-              >
-                <option value="">Select location to export from</option>
-                {product.locations
+              <SearchableSelect
+                options={product.locations
                   .filter(loc => loc.quantity > 0)
-                  .map((location) => {
+                  .map(location => {
                     const locationName = locations.find(l => l._id === location.locationId._id)?.name || 'Unknown';
-                    return (
-                      <option key={location.locationId._id} value={location.locationId._id}>
-                        {locationName} ({location.quantity} available)
-                      </option>
-                    );
+                    return {
+                      ...location,
+                      displayName: locationName,
+                    };
                   })}
-              </select>
+                value={formData.fromLocation}
+                onChange={(value) => setFormData(prev => ({ ...prev, fromLocation: value }))}
+                getOptionLabel={(location: any) => `${location.displayName} (${location.quantity} available)`}
+                getOptionValue={(location: any) => location.locationId._id}
+                placeholder="Select location to export from"
+                limit={50}
+              />
             </div>
 
             <div>

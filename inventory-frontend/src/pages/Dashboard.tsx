@@ -33,15 +33,21 @@ const Dashboard = () => {
       console.log('[Dashboard] Token before API calls:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
       
       console.log('[Dashboard] Calling productsApi.fetchProducts()');
-      const productsData = await productsApi.fetchProducts();
-      console.log('[Dashboard] Products fetched successfully, count:', productsData.length);
+      const productsResponse = await productsApi.fetchProducts({
+        page: 1,
+        limit: 50,
+      });
+      console.log('[Dashboard] Products fetched successfully, count:', productsResponse.data.length);
       
       console.log('[Dashboard] Calling movementsApi.fetchMovements()');
-      const movementsData = await movementsApi.fetchMovements();
-      console.log('[Dashboard] Movements fetched successfully, count:', movementsData.length);
+      const movementsResponse = await movementsApi.fetchMovements({
+        page: 1,
+        limit: 5,
+      });
+      console.log('[Dashboard] Movements fetched successfully, count:', movementsResponse.data.length);
       
-      setProducts(productsData);
-      setMovements(movementsData.slice(0, 5)); // Get latest 5 movements
+      setProducts(productsResponse.data);
+      setMovements(movementsResponse.data); // Get latest 5 movements
       console.log('[Dashboard] Data fetch completed successfully');
     } catch (error: any) {
       console.error('[Dashboard] Failed to fetch data:', error);

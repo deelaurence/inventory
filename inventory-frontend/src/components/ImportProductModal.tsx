@@ -3,6 +3,7 @@ import { productsApi, type Product } from '../services/productsApi';
 import type { Location } from '../services/locationsApi';
 import { importLocationsApi, type ImportLocation } from '../services/importLocationsApi';
 import Loader from './Loader';
+import SearchableSelect from './SearchableSelect';
 
 interface ImportProductModalProps {
   isOpen: boolean;
@@ -59,8 +60,11 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
 
   const fetchExistingProducts = async () => {
     try {
-      const data = await productsApi.fetchProducts();
-      setExistingProducts(data);
+      const response = await productsApi.fetchProducts({
+        page: 1,
+        limit: 50,
+      });
+      setExistingProducts(response.data);
     } catch (err) {
       console.error('Failed to fetch existing products:', err);
     }
@@ -276,22 +280,15 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
               <label htmlFor="selectedProductId" className="block text-sm font-medium text-gray-700 mb-2">
                 Select Existing Product (Optional)
               </label>
-              <select
-                id="selectedProductId"
-                name="selectedProductId"
+              <SearchableSelect
+                options={existingProducts}
                 value={formData.selectedProductId}
-                onChange={(e) => {
-                  handleProductSelect(e.target.value);
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="">Create New Product</option>
-                {existingProducts.map((product) => (
-                  <option key={product._id} value={product._id}>
-                    {product.description} (#{product.partsNumber})
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => handleProductSelect(value)}
+                getOptionLabel={(product) => `${product.description} (#${product.partsNumber})`}
+                getOptionValue={(product) => product._id}
+                placeholder="Create New Product"
+                limit={50}
+              />
               {isEditingExisting && (
                 <div className="mt-1">
                   <p className="text-xs text-blue-600 font-medium">
@@ -396,21 +393,15 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
               <label htmlFor="importLocation" className="block text-sm font-medium text-gray-700 mb-2">
                 Storage Location *
               </label>
-              <select
-                id="importLocation"
-                name="importLocation"
+              <SearchableSelect
+                options={locations}
                 value={formData.importLocation}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="">Select storage location</option>
-                {locations.map((location) => (
-                  <option key={location._id} value={location._id}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setFormData(prev => ({ ...prev, importLocation: value }))}
+                getOptionLabel={(location) => location.name}
+                getOptionValue={(location) => location._id}
+                placeholder="Select storage location"
+                limit={50}
+              />
             </div>
 
             <div>
@@ -420,23 +411,16 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                   <span className="ml-2 text-xs text-gray-500 font-normal">(Read-only)</span>
                 )}
               </label>
-              <select
-                id="importLocationId"
-                name="importLocationId"
+              <SearchableSelect
+                options={importLocations}
                 value={formData.importLocationId}
-                onChange={handleChange}
+                onChange={(value) => setFormData(prev => ({ ...prev, importLocationId: value }))}
+                getOptionLabel={(location) => `${location.name}${location.country ? ` (${location.country})` : ''}`}
+                getOptionValue={(location) => location._id}
+                placeholder="Select import location (optional)"
                 disabled={isEditingExisting}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                  isEditingExisting ? 'bg-gray-50 text-gray-900 cursor-not-allowed border-gray-200' : ''
-                }`}
-              >
-                <option value="">Select import location (optional)</option>
-                {importLocations.map((location) => (
-                  <option key={location._id} value={location._id}>
-                    {location.name} {location.country && `(${location.country})`}
-                  </option>
-                ))}
-              </select>
+                limit={50}
+              />
               {isEditingExisting && (
                 <p className="mt-1 text-xs text-gray-500">
                   Import location cannot be changed when updating existing product

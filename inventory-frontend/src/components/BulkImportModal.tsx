@@ -3,6 +3,7 @@ import { productsApi, type Product } from '../services/productsApi';
 import type { Location } from '../services/locationsApi';
 import { importLocationsApi, type ImportLocation } from '../services/importLocationsApi';
 import Loader from './Loader';
+import SearchableSelect from './SearchableSelect';
 
 interface BulkProductItem {
   id: string;
@@ -62,8 +63,11 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
 
   const fetchExistingProducts = async () => {
     try {
-      const data = await productsApi.fetchProducts();
-      setExistingProducts(data);
+      const response = await productsApi.fetchProducts({
+        page: 1,
+        limit: 50,
+      });
+      setExistingProducts(response.data);
     } catch (err) {
       console.error('Failed to fetch existing products:', err);
     }
@@ -285,20 +289,17 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                   Select Existing Product
                 </label>
                 <div className="flex space-x-2">
-                  <select
-                    value={selectedExistingProductId}
-                    onChange={(e) => setSelectedExistingProductId(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Choose existing product...</option>
-                    {existingProducts
-                      .filter(p => !products.some(listItem => listItem.productId === p._id))
-                      .map((product) => (
-                        <option key={product._id} value={product._id}>
-                          {product.description} (#{product.partsNumber})
-                        </option>
-                      ))}
-                  </select>
+                  <div className="flex-1">
+                    <SearchableSelect
+                      options={existingProducts.filter(p => !products.some(listItem => listItem.productId === p._id))}
+                      value={selectedExistingProductId}
+                      onChange={(value) => setSelectedExistingProductId(value)}
+                      getOptionLabel={(product) => `${product.description} (#${product.partsNumber})`}
+                      getOptionValue={(product) => product._id}
+                      placeholder="Choose existing product..."
+                      limit={50}
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -539,36 +540,29 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Storage Location *
                 </label>
-                <select
+                <SearchableSelect
+                  options={locations}
                   value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select storage location</option>
-                  {locations.map((location) => (
-                    <option key={location._id} value={location._id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setSelectedLocation(value)}
+                  getOptionLabel={(location) => location.name}
+                  getOptionValue={(location) => location._id}
+                  placeholder="Select storage location"
+                  limit={50}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Import Location
                 </label>
-                <select
+                <SearchableSelect
+                  options={importLocations}
                   value={selectedImportLocation}
-                  onChange={(e) => setSelectedImportLocation(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select import location (optional)</option>
-                  {importLocations.map((location) => (
-                    <option key={location._id} value={location._id}>
-                      {location.name} {location.country && `(${location.country})`}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setSelectedImportLocation(value)}
+                  getOptionLabel={(location) => `${location.name}${location.country ? ` (${location.country})` : ''}`}
+                  getOptionValue={(location) => location._id}
+                  placeholder="Select import location (optional)"
+                  limit={50}
+                />
               </div>
             </div>
           </form>

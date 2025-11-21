@@ -32,14 +32,30 @@ export interface CreateSaleDto {
   notes?: string;
 }
 
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export const salesApi = {
   createSale: async (data: CreateSaleDto): Promise<Sale> => {
     const response = await api.post('/sales', data);
     return response.data;
   },
 
-  fetchSales: async (): Promise<Sale[]> => {
-    const response = await api.get('/sales');
+  fetchSales: async (params?: PaginationParams): Promise<PaginatedResponse<Sale>> => {
+    const response = await api.get('/sales', { params });
     return response.data;
   },
 
