@@ -63,7 +63,7 @@ export interface PriceComparisonDto {
 export interface UpdateProductDto {
   description?: string;
   unitPrice?: number;
-  sellingPrice?: number;
+  sellingPrice?: number | null;
   priceComparisons?: PriceComparisonDto[];
 }
 
