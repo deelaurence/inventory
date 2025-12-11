@@ -295,7 +295,7 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                       options={existingProducts.filter(p => !products.some(listItem => listItem.productId === p._id))}
                       value={selectedExistingProductId}
                       onChange={(value) => setSelectedExistingProductId(value)}
-                      getOptionLabel={(product) => `${product.description} (#${product.partsNumber})`}
+                      getOptionLabel={(product) => `${product.description} (${product.partsNumber})`}
                       getOptionValue={(product) => product._id}
                       placeholder="Choose existing product..."
                       limit={50}
@@ -472,7 +472,7 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                             <td className="px-4 py-3">
                               <div>
                                 <div className="text-sm font-medium text-gray-900">{product.description}</div>
-                                <div className="text-xs text-gray-500">#{product.partsNumber}</div>
+                                <div className="text-xs text-gray-500">{product.partsNumber}</div>
                                 {product.isNew ? (
                                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1">
                                     New Product

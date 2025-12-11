@@ -96,6 +96,15 @@ const Inventory = () => {
     return location ? location.quantity : 0;
   };
 
+  const getProductsByLocation = (locationId: string): number => {
+    return products.filter(product => {
+      const location = product.locations.find(
+        loc => loc.locationId._id === locationId && loc.quantity > 0
+      );
+      return location !== undefined;
+    }).length;
+  };
+
   const handleImportSuccess = () => {
     setShowImportModal(false);
     fetchData();
@@ -172,18 +181,18 @@ const Inventory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-md">
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
-              <p className="text-sm text-gray-600 mt-1">Manage your products and stock levels</p>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Inventory</h1>
+              <p className="text-sm text-gray-600 mt-1 font-medium">Manage your products and stock levels</p>
             </div>
             <button
               onClick={() => setShowImportTypeModal(true)}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -196,8 +205,48 @@ const Inventory = () => {
 
       {/* Content */}
       <div className="px-4 sm:px-6 lg:px-8 py-6">
+        {/* Location Statistics */}
+        {locations.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4">Products by Location</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {locations.map((location, index) => {
+                const locationGradients = [
+                  { gradient: 'from-blue-500 via-indigo-500 to-purple-500', bgGradient: 'from-blue-50 via-indigo-100/50 to-purple-50', iconBg: 'bg-gradient-to-br from-blue-400 to-purple-500', textColor: 'text-blue-700', borderColor: 'border-blue-200' },
+                  { gradient: 'from-indigo-500 via-purple-500 to-pink-500', bgGradient: 'from-indigo-50 via-purple-100/50 to-pink-50', iconBg: 'bg-gradient-to-br from-indigo-400 to-pink-500', textColor: 'text-indigo-700', borderColor: 'border-indigo-200' },
+                  { gradient: 'from-cyan-500 via-blue-500 to-indigo-500', bgGradient: 'from-cyan-50 via-blue-100/50 to-indigo-50', iconBg: 'bg-gradient-to-br from-cyan-400 to-indigo-500', textColor: 'text-cyan-700', borderColor: 'border-cyan-200' },
+                  { gradient: 'from-violet-500 via-purple-500 to-fuchsia-500', bgGradient: 'from-violet-50 via-purple-100/50 to-fuchsia-50', iconBg: 'bg-gradient-to-br from-violet-400 to-fuchsia-500', textColor: 'text-violet-700', borderColor: 'border-violet-200' },
+                ];
+                const locationStyle = locationGradients[index % locationGradients.length];
+                const productCount = loading ? '...' : getProductsByLocation(location._id).toLocaleString();
+                
+                return (
+                  <div key={location._id} className={`bg-gradient-to-br ${locationStyle.bgGradient} rounded-xl border-2 ${locationStyle.borderColor} p-5 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className={`text-sm font-semibold ${locationStyle.textColor} mb-1`}>{location.name}</p>
+                        <p className={`text-2xl font-bold ${locationStyle.textColor} mt-1`}>{productCount}</p>
+                        <p className={`text-xs ${locationStyle.textColor} opacity-70 mt-1`}>products</p>
+                      </div>
+                      <div className={`p-3 rounded-xl ${locationStyle.iconBg} shadow-lg transform rotate-3 hover:rotate-6 transition-transform`}>
+                        <div className="text-white">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`mt-3 h-1 rounded-full bg-gradient-to-r ${locationStyle.gradient} opacity-60`}></div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Search and Filters */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-blue-200 shadow-xl p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search */}
             <div>
@@ -257,16 +306,16 @@ const Inventory = () => {
 
         {products.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shadow-lg border-2 border-blue-200">
+              <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No products yet</h3>
-            <p className="text-gray-600 mb-6">Get started by adding your first product to the inventory</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">No products yet</h3>
+            <p className="text-gray-600 mb-6 font-medium">Get started by adding your first product to the inventory</p>
             <button
               onClick={() => setShowImportTypeModal(true)}
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -282,12 +331,12 @@ const Inventory = () => {
                 <div 
                   key={product._id} 
                   onClick={() => openEditModal(product)}
-                  className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                  className="bg-white/80 backdrop-blur-sm rounded-xl border-2 border-blue-200 p-4 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 truncate">{product.description}</h3>
-                      <p className="text-sm text-gray-500 mt-1">#{product.partsNumber}</p>
+                      <p className="text-sm text-gray-500 mt-1">{product.partsNumber}</p>
                       {product.importLocationId && (
                         <div className="mt-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -352,10 +401,10 @@ const Inventory = () => {
             </div>
 
             {/* Desktop Table View */}
-            <div className="hidden sm:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="hidden sm:block bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-blue-200 shadow-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gradient-to-r from-blue-50 via-indigo-50 to-cyan-50">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Product
@@ -386,7 +435,7 @@ const Inventory = () => {
                         <td className="px-6 py-4">
                           <div>
                             <div className="font-semibold text-gray-900">{product.description}</div>
-                            <div className="text-sm text-gray-500">#{product.partsNumber}</div>
+                            <div className="text-sm text-gray-500">{product.partsNumber}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -422,7 +471,7 @@ const Inventory = () => {
                           <div className="flex justify-center space-x-2" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => openTransferModal(product)}
-                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-blue-700 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg hover:from-blue-100 hover:to-cyan-100 transition-all duration-300 border border-blue-200 shadow-sm hover:shadow-md"
                             >
                               <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -431,7 +480,7 @@ const Inventory = () => {
                             </button>
                             <button
                               onClick={() => openExportModal(product)}
-                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-red-700 bg-gradient-to-r from-red-50 to-rose-50 rounded-lg hover:from-red-100 hover:to-rose-100 transition-all duration-300 border border-red-200 shadow-sm hover:shadow-md"
                             >
                               <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

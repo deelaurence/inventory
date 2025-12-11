@@ -109,7 +109,7 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">{product.description}</h3>
-                <p className="text-sm text-gray-500">#{product.partsNumber}</p>
+                <p className="text-sm text-gray-500">{product.partsNumber}</p>
               </div>
             </div>
           </div>

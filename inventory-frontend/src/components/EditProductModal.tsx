@@ -205,7 +205,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Parts Number</p>
-                <p className="text-sm font-semibold text-gray-900">#{product.partsNumber}</p>
+                <p className="text-sm font-semibold text-gray-900">{product.partsNumber}</p>
               </div>
             </div>
           </div>

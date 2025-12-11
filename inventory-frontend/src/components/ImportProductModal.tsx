@@ -285,7 +285,7 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 options={existingProducts}
                 value={formData.selectedProductId}
                 onChange={(value) => handleProductSelect(value)}
-                getOptionLabel={(product) => `${product.description} (#${product.partsNumber})`}
+                getOptionLabel={(product) => `${product.description} (${product.partsNumber})`}
                 getOptionValue={(product) => product._id}
                 placeholder="Create New Product"
                 limit={50}
@@ -297,7 +297,7 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                   </p>
                   {formData.description && (
                     <p className="text-xs text-gray-600 mt-1">
-                      Product: {formData.description} (#{formData.partsNumber})
+                      Product: {formData.description} ({formData.partsNumber})
                     </p>
                   )}
                 </div>
