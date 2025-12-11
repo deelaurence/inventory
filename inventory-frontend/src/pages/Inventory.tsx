@@ -8,6 +8,7 @@ import TransferProductModal from '../components/TransferProductModal';
 import ExportProductModal from '../components/ExportProductModal';
 import EditProductModal from '../components/EditProductModal';
 import Loader from '../components/Loader';
+import { getCurrencySymbol } from '../utils/currency';
 
 const Inventory = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -301,7 +302,7 @@ const Inventory = () => {
                       {product.sellingPrice && (
                         <div className="mt-1">
                           <span className="text-sm font-medium text-green-600">
-                            Selling: ₦{product.sellingPrice.toLocaleString()}
+                            Selling: {getCurrencySymbol()}{product.sellingPrice.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -404,7 +405,7 @@ const Inventory = () => {
                         <td className="px-6 py-4">
                           {product.sellingPrice ? (
                             <span className="text-sm font-medium text-green-600">
-                              ₦{product.sellingPrice.toLocaleString()}
+                              {getCurrencySymbol()}{product.sellingPrice.toLocaleString()}
                             </span>
                           ) : (
                             <span className="text-sm text-gray-400">-</span>

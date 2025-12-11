@@ -3,6 +3,7 @@ import { productsApi, type PriceComparisonDto } from '../services/productsApi';
 import type { Product } from '../services/productsApi';
 import { importLocationsApi, type ImportLocation } from '../services/importLocationsApi';
 import Loader from './Loader';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface EditProductModalProps {
   isOpen: boolean;
@@ -245,7 +246,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
                   <label className="block text-sm font-medium text-gray-700">
                     Cost Price (Unit Price)
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">Current: ₦{product.unitPrice?.toLocaleString() || 'N/A'}</p>
+                  <p className="text-xs text-gray-500 mt-1">Current: {getCurrencySymbol()}{product.unitPrice?.toLocaleString() || 'N/A'}</p>
                 </div>
                 <button
                   type="button"
@@ -286,7 +287,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500 text-sm">₦</span>
+                      <span className="text-gray-500 text-sm">{getCurrencySymbol()}</span>
                     </div>
                     <input
                       type="number"
@@ -311,7 +312,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 text-sm">₦</span>
+                  <span className="text-gray-500 text-sm">{getCurrencySymbol()}</span>
                 </div>
                 <input
                   type="number"
@@ -339,7 +340,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
                           {profit >= 0 ? '✓ Profit' : '⚠ Loss'} per unit:
                         </span>
                         <span className={`font-semibold ${profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                          ₦{Math.abs(profit).toLocaleString()} ({profitPercentage >= 0 ? '+' : ''}{profitPercentage.toFixed(1)}%)
+                          {getCurrencySymbol()}{Math.abs(profit).toLocaleString()} ({profitPercentage >= 0 ? '+' : ''}{profitPercentage.toFixed(1)}%)
                         </span>
                       </div>
                     </div>
@@ -396,7 +397,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 text-xs">₦</span>
+                          <span className="text-gray-500 text-xs">{getCurrencySymbol()}</span>
                         </div>
                         <input
                           type="number"
@@ -442,7 +443,7 @@ const EditProductModal = ({ isOpen, onClose, onSuccess, product }: EditProductMo
                           {getImportLocationName(pc.importLocationId)}
                         </div>
                         <div className="text-sm text-gray-600">
-                          ₦{Number(pc.price).toLocaleString()}
+                          {getCurrencySymbol()}{Number(pc.price).toLocaleString()}
                         </div>
                       </div>
                       <button

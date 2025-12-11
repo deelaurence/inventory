@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { productsApi, type Product } from '../services/productsApi';
 import { movementsApi, type Movement } from '../services/movementsApi';
 import Loader from '../components/Loader';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 const Dashboard = () => {
   const { user } = useAuthStore();
@@ -144,15 +145,6 @@ const Dashboard = () => {
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `₦${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `₦${(amount / 1000).toFixed(1)}K`;
-    } else {
-      return `₦${amount.toLocaleString()}`;
-    }
-  };
 
   const stats = [
     {
@@ -396,7 +388,7 @@ const Dashboard = () => {
                             {movement.productId?.description || 'Unknown Product'}
                           </p>
                           <p className="text-xs text-gray-500">
-                            #{movement.productId?.partsNumber || 'N/A'} • ₦{movement.unitPrice.toFixed(2)}
+                            #{movement.productId?.partsNumber || 'N/A'} • {getCurrencySymbol()}{movement.unitPrice.toFixed(2)}
                           </p>
                         </div>
                         

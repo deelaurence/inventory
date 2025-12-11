@@ -4,6 +4,7 @@ import { locationsApi, type Location } from '../services/locationsApi';
 import { salesApi } from '../services/salesApi';
 import Loader from '../components/Loader';
 import SearchableSelect from '../components/SearchableSelect';
+import { getCurrencySymbol } from '../utils/currency';
 
 const Sell = () => {
   const [activeTab, setActiveTab] = useState<'sell' | 'sales'>('sell');
@@ -427,12 +428,12 @@ const Sell = () => {
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
                       <span className="text-xs text-gray-500">Cost Price:</span>
-                      <div className="text-sm font-medium text-gray-900">₦{selectedProduct.unitPrice.toLocaleString()}</div>
+                      <div className="text-sm font-medium text-gray-900">{getCurrencySymbol()}{selectedProduct.unitPrice.toLocaleString()}</div>
                     </div>
                     {selectedProduct.sellingPrice && (
                       <div>
                         <span className="text-xs text-gray-500">Suggested Selling Price:</span>
-                        <div className="text-sm font-medium text-gray-900">₦{selectedProduct.sellingPrice.toLocaleString()}</div>
+                        <div className="text-sm font-medium text-gray-900">{getCurrencySymbol()}{selectedProduct.sellingPrice.toLocaleString()}</div>
                       </div>
                     )}
                   </div>
@@ -446,7 +447,7 @@ const Sell = () => {
                               {profitCalc.profit >= 0 ? 'Profit' : 'Loss'} per unit:
                             </span>
                             <span className={`font-semibold ${profitCalc.profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                              ₦{Math.abs(profitCalc.profit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
+                              {getCurrencySymbol()}{Math.abs(profitCalc.profit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
                             </span>
                           </div>
                         </div>
@@ -468,7 +469,7 @@ const Sell = () => {
                                   ? `${pc.importLocationId.name || 'Unknown'}${pc.importLocationId.country ? ` (${pc.importLocationId.country})` : ''}`
                                   : 'Unknown Location'}:
                               </span>
-                              <span className="font-medium text-gray-900">₦{pc.price?.toLocaleString() || '0'}</span>
+                              <span className="font-medium text-gray-900">{getCurrencySymbol()}{pc.price?.toLocaleString() || '0'}</span>
                             </div>
                           ))}
                       </div>
@@ -503,13 +504,13 @@ const Sell = () => {
                     Selling Price *
                     {selectedProduct?.sellingPrice && (
                       <span className="ml-2 text-xs text-gray-500 font-normal">
-                        (Suggested: ₦{selectedProduct.sellingPrice.toLocaleString()})
+                        (Suggested: {getCurrencySymbol()}{selectedProduct.sellingPrice.toLocaleString()})
                       </span>
                     )}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500 text-sm">₦</span>
+                      <span className="text-gray-500 text-sm">{getCurrencySymbol()}</span>
                     </div>
                     <input
                       type="number"
@@ -534,7 +535,7 @@ const Sell = () => {
                               {profitCalc.profit >= 0 ? '✓ Profit' : '⚠ Loss'} per unit:
                             </span>
                             <span className={`font-semibold ${profitCalc.profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                              ₦{Math.abs(profitCalc.profit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
+                              {getCurrencySymbol()}{Math.abs(profitCalc.profit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
                             </span>
                           </div>
                         </div>
@@ -571,11 +572,11 @@ const Sell = () => {
                     </div>
                     <div className="flex justify-between">
                       <span>Price per unit:</span>
-                      <span className="font-medium">₦{parseFloat(formData.price).toLocaleString()}</span>
+                      <span className="font-medium">{getCurrencySymbol()}{parseFloat(formData.price).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between pt-2 border-t border-blue-200">
                       <span className="font-semibold">Total Amount:</span>
-                      <span className="font-bold text-lg">₦{(parseFloat(formData.quantity) * parseFloat(formData.price)).toLocaleString()}</span>
+                      <span className="font-bold text-lg">{getCurrencySymbol()}{(parseFloat(formData.quantity) * parseFloat(formData.price)).toLocaleString()}</span>
                     </div>
                     {selectedProduct && (
                       (() => {
@@ -587,7 +588,7 @@ const Sell = () => {
                               Total {profitCalc.profit >= 0 ? 'Profit' : 'Loss'}:
                             </span>
                             <span className="font-bold text-lg">
-                              ₦{Math.abs(totalProfit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
+                              {getCurrencySymbol()}{Math.abs(totalProfit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
                             </span>
                           </div>
                         ) : null;
@@ -801,11 +802,11 @@ const Sell = () => {
                               <span className="text-sm text-gray-900">{sale.quantity}</span>
                             </td>
                             <td className="px-6 py-4">
-                              <span className="text-sm text-gray-900">₦{sale.price.toLocaleString()}</span>
+                              <span className="text-sm text-gray-900">{getCurrencySymbol()}{sale.price.toLocaleString()}</span>
                             </td>
                             <td className="px-6 py-4">
                               <span className="text-sm font-semibold text-green-600">
-                                ₦{(sale.quantity * sale.price).toLocaleString()}
+                                {getCurrencySymbol()}{(sale.quantity * sale.price).toLocaleString()}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -968,12 +969,12 @@ const Sell = () => {
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4">
                     <div className="text-xs font-medium text-purple-600 uppercase mb-1">Price per Unit</div>
-                    <div className="text-sm font-semibold text-purple-900">₦{selectedSale.price.toLocaleString()}</div>
+                    <div className="text-sm font-semibold text-purple-900">{getCurrencySymbol()}{selectedSale.price.toLocaleString()}</div>
                   </div>
                   <div className="bg-yellow-50 rounded-lg p-4">
                     <div className="text-xs font-medium text-yellow-600 uppercase mb-1">Total Amount</div>
                     <div className="text-lg font-bold text-yellow-900">
-                      ₦{(selectedSale.quantity * selectedSale.price).toLocaleString()}
+                      {getCurrencySymbol()}{(selectedSale.quantity * selectedSale.price).toLocaleString()}
                     </div>
                   </div>
                 </div>

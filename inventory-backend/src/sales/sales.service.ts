@@ -87,7 +87,7 @@ export class SalesService {
       unitPrice: product.unitPrice,
       movedBy: userId,
       movementType: MovementType.EXPORT,
-      notes: `Sold ${quantity} units at ₦${price.toFixed(2)} per unit${notes ? `. Notes: ${notes}` : ''}`,
+      notes: `Sold ${quantity} units at $${price.toFixed(2)} per unit${notes ? `. Notes: ${notes}` : ''}`,
     });
 
     return savedSale;

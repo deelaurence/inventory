@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { movementsApi, type Movement } from '../services/movementsApi';
 import Loader from '../components/Loader';
+import { getCurrencySymbol } from '../utils/currency';
 
 const MovementHistory = () => {
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -280,7 +281,7 @@ const MovementHistory = () => {
                         {movement.quantity}
                       </div>
                       <div className="text-sm text-gray-500">
-                        ₦{movement.unitPrice.toFixed(2)}
+                        {getCurrencySymbol()}{movement.unitPrice.toFixed(2)}
                       </div>
                     </div>
                   </div>
@@ -399,7 +400,7 @@ const MovementHistory = () => {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="text-sm font-medium text-gray-900">
-                            ₦{movement.unitPrice.toFixed(2)}
+                            {getCurrencySymbol()}{movement.unitPrice.toFixed(2)}
                           </div>
                         </td>
                         <td className="px-6 py-4">

@@ -4,6 +4,7 @@ import type { Location } from '../services/locationsApi';
 import { importLocationsApi, type ImportLocation } from '../services/importLocationsApi';
 import Loader from './Loader';
 import SearchableSelect from './SearchableSelect';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface BulkProductItem {
   id: string;
@@ -417,7 +418,7 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                                   {profit >= 0 ? 'Profit' : 'Loss'}:
                                 </span>
                                 <span className={`font-semibold ${profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                                  ₦{Math.abs(profit).toLocaleString()} ({profitPercentage >= 0 ? '+' : ''}{profitPercentage.toFixed(1)}%)
+                                  {getCurrencySymbol()}{Math.abs(profit).toLocaleString()} ({profitPercentage >= 0 ? '+' : ''}{profitPercentage.toFixed(1)}%)
                                 </span>
                               </div>
                             </div>

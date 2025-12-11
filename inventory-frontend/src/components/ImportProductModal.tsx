@@ -4,6 +4,7 @@ import type { Location } from '../services/locationsApi';
 import { importLocationsApi, type ImportLocation } from '../services/importLocationsApi';
 import Loader from './Loader';
 import SearchableSelect from './SearchableSelect';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface ImportProductModalProps {
   isOpen: boolean;
@@ -371,7 +372,7 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 text-sm">₦</span>
+                    <span className="text-gray-500 text-sm">{getCurrencySymbol()}</span>
                   </div>
                   <input
                     type="number"
@@ -434,7 +435,7 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 text-sm">₦</span>
+                  <span className="text-gray-500 text-sm">{getCurrencySymbol()}</span>
                 </div>
                 <input
                   type="number"
@@ -482,8 +483,8 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                           </svg>
                         )}
-                        {isProfit && `+₦${difference.toFixed(2)} profit`}
-                        {isLoss && `-₦${Math.abs(difference).toFixed(2)} loss`}
+                        {isProfit && `+${getCurrencySymbol()}${difference.toFixed(2)} profit`}
+                        {isLoss && `-${getCurrencySymbol()}${Math.abs(difference).toFixed(2)} loss`}
                         {isBreakEven && 'Break even'}
                       </div>
                     );
