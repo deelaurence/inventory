@@ -4,7 +4,7 @@ interface LoaderProps {
   size?: 'sm' | 'md' | 'lg';
   text?: string;
   className?: string;
-  color?: 'blue' | 'green' | 'blue' | 'red';
+  color?: 'blue' | 'green' |  'red';
 }
 
 const Loader: React.FC<LoaderProps> = ({ 
@@ -28,7 +28,7 @@ const Loader: React.FC<LoaderProps> = ({
   const colorClasses = {
     blue: 'bg-blue-600',
     green: 'bg-green-600',
-    blue: 'bg-blue-600',
+    
     red: 'bg-red-600'
   };
 
