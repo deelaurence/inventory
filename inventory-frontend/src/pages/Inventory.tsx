@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { productsApi, type Product } from '../services/productsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
 import ImportProductModal from '../components/ImportProductModal';
@@ -11,6 +12,7 @@ import Loader from '../components/Loader';
 import { getCurrencySymbol } from '../utils/currency';
 
 const Inventory = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +34,9 @@ const Inventory = () => {
   const [limit] = useState(50);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [showLowStockOnly, setShowLowStockOnly] = useState(() => {
+    return searchParams.get('filter') === 'lowstock';
+  });
 
   // Debounce search - wait 3 seconds after user stops typing
   useEffect(() => {
@@ -89,11 +94,27 @@ const Inventory = () => {
     setStartDate('');
     setEndDate('');
     setPage(1);
+    clearLowStockFilter();
+  };
+
+  const clearLowStockFilter = () => {
+    setShowLowStockOnly(false);
+    searchParams.delete('filter');
+    setSearchParams(searchParams);
   };
 
   const getQuantityAtLocation = (product: Product, locationId: string): number => {
     const location = product.locations.find(loc => loc.locationId._id === locationId);
     return location ? location.quantity : 0;
+  };
+
+  const getTotalQuantity = (product: Product): number => {
+    return product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
+  };
+
+  const isLowStock = (product: Product): boolean => {
+    const totalQuantity = getTotalQuantity(product);
+    return totalQuantity > 0 && totalQuantity < 10;
   };
 
   const getProductsByLocation = (locationId: string): number => {
@@ -325,17 +346,57 @@ const Inventory = () => {
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Low Stock Filter Indicator */}
+            {showLowStockOnly && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-4 shadow-md">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="font-semibold text-amber-900">Low Stock Filter Active</p>
+                      <p className="text-sm text-amber-700 mt-1">Showing products with 1-9 items in stock across all locations</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={clearLowStockFilter}
+                    className="inline-flex items-center px-4 py-2 bg-white text-amber-700 text-sm font-medium border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors flex-shrink-0"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Clear Filter
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Mobile Cards View */}
             <div className="block sm:hidden space-y-3">
-              {products.map((product) => (
+              {products.filter(p => !showLowStockOnly || isLowStock(p)).map((product) => (
                 <div 
                   key={product._id} 
                   onClick={() => openEditModal(product)}
-                  className="bg-white/80 backdrop-blur-sm rounded-xl border-2 border-blue-200 p-4 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
+                  className={`rounded-xl border-2 p-4 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${
+                    isLowStock(product)
+                      ? 'bg-amber-50/80 backdrop-blur-sm border-amber-300'
+                      : 'bg-white/80 backdrop-blur-sm border-blue-200'
+                  }`}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{product.description}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900 truncate">{product.description}</h3>
+                        {isLowStock(product) && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap flex-shrink-0">
+                            <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            Low Stock
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-500 mt-1">{product.partsNumber}</p>
                       {product.importLocationId && (
                         <div className="mt-2">
@@ -426,15 +487,29 @@ const Inventory = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {products.map((product) => (
+                    {products.filter(p => !showLowStockOnly || isLowStock(p)).map((product) => (
                       <tr 
                         key={product._id} 
                         onClick={() => openEditModal(product)}
-                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        className={`transition-colors cursor-pointer ${
+                          isLowStock(product)
+                            ? 'bg-amber-50 hover:bg-amber-100'
+                            : 'hover:bg-gray-50'
+                        }`}
                       >
                         <td className="px-6 py-4">
                           <div>
-                            <div className="font-semibold text-gray-900">{product.description}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="font-semibold text-gray-900">{product.description}</div>
+                              {isLowStock(product) && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  Low Stock
+                                </span>
+                              )}
+                            </div>
                             <div className="text-sm text-gray-500">{product.partsNumber}</div>
                           </div>
                         </td>

@@ -99,7 +99,7 @@ const DashboardLayout = () => {
             </div>
             <button
               onClick={logout}
-              className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-blue-200 hover:bg-blue-800 hover:text-white rounded-lg transition-colors border border-blue-800 hover:border-blue-600"
+              className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors border border-red-700 hover:border-red-800"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [salesStats, setSalesStats] = useState<SalesStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [movementsLoading, setMovementsLoading] = useState(true);
+  const [salesLoading, setSalesLoading] = useState(false);
   const [salesFilter, setSalesFilter] = useState<'24h' | '3d' | '5d' | '1w' | '2w' | '1m' | '6m' | '1y' | 'custom'>('1m');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
@@ -73,6 +74,7 @@ const Dashboard = () => {
 
   const fetchSalesData = async (filter: string, customStart?: string, customEnd?: string) => {
     try {
+      setSalesLoading(true);
       let startDate: string | undefined;
       let endDate: string | undefined;
 
@@ -89,6 +91,8 @@ const Dashboard = () => {
       setSalesStats(stats);
     } catch (error) {
       console.error('[Dashboard] Failed to fetch sales stats:', error);
+    } finally {
+      setSalesLoading(false);
     }
   };
 
@@ -291,7 +295,7 @@ const Dashboard = () => {
       iconBg: 'bg-gradient-to-br from-amber-400 to-orange-500',
       textColor: 'text-amber-700',
       borderColor: 'border-amber-200',
-      href: '/dashboard/inventory'
+      href: '/dashboard/inventory?filter=lowstock'
     },
     {
       name: 'Total Value',
@@ -417,7 +421,15 @@ const Dashboard = () => {
         </div>
 
         {/* Total Sales Card with Filters */}
-        <div className="mb-8 bg-gradient-to-br from-purple-50 via-fuchsia-100/50 to-pink-50 rounded-2xl border-2 border-purple-200 p-6 shadow-lg">
+        <div className="mb-8 bg-gradient-to-br from-purple-50 via-fuchsia-100/50 to-pink-50 rounded-2xl border-2 border-purple-200 p-6 shadow-lg relative">
+          {salesLoading && (
+            <div className="absolute inset-0 bg-white/40 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
+              <div className="flex flex-col items-center gap-2">
+                <Loader size="md" color="purple" />
+                <p className="text-sm text-gray-600 font-medium">Loading sales data...</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-start justify-between mb-6">
             <div>
               <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
