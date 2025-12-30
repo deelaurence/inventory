@@ -28,5 +28,12 @@ export class SalesController {
   async findByLocation(@Param('locationId') locationId: string) {
     return this.salesService.getSalesByLocation(locationId);
   }
+
+  @Get('stats/total')
+  async getTotalSales(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
+    const start = startDate ? new Date(startDate) : undefined;
+    const end = endDate ? new Date(endDate) : undefined;
+    return this.salesService.getTotalSales(start, end);
+  }
 }
 

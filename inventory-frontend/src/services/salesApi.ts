@@ -48,6 +48,12 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+export interface SalesStats {
+  totalSales: number;
+  totalQuantity: number;
+  salesToday: number;
+}
+
 export const salesApi = {
   createSale: async (data: CreateSaleDto): Promise<Sale> => {
     const response = await api.post('/sales', data);
@@ -66,6 +72,16 @@ export const salesApi = {
 
   fetchSalesByLocation: async (locationId: string): Promise<Sale[]> => {
     const response = await api.get(`/sales/location/${locationId}`);
+    return response.data;
+  },
+
+  getTotalSales: async (startDate?: string, endDate?: string): Promise<SalesStats> => {
+    const response = await api.get('/sales/stats/total', {
+      params: {
+        startDate,
+        endDate,
+      },
+    });
     return response.data;
   },
 };

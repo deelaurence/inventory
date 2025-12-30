@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { productsApi, type Product, type LocationStats } from '../services/productsApi';
 import { movementsApi, type Movement } from '../services/movementsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
+import { salesApi, type SalesStats } from '../services/salesApi';
 import Loader from '../components/Loader';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
@@ -12,8 +13,12 @@ const Dashboard = () => {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [locationStats, setLocationStats] = useState<LocationStats[]>([]);
+  const [salesStats, setSalesStats] = useState<SalesStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [movementsLoading, setMovementsLoading] = useState(true);
+  const [salesFilter, setSalesFilter] = useState<'24h' | '3d' | '5d' | '1w' | '2w' | '1m' | '6m' | '1y' | 'custom'>('1m');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   useEffect(() => {
     console.log('[Dashboard] Component mounted, fetching data');
@@ -25,7 +30,67 @@ const Dashboard = () => {
       tokenInStorage: !!localStorage.getItem('token')
     });
     fetchData();
+    fetchSalesData('1m');
   }, []);
+
+  const getDateRangeFromFilter = (filter: string): { start: Date; end: Date } => {
+    const end = new Date();
+    const start = new Date();
+
+    switch (filter) {
+      case '24h':
+        start.setDate(start.getDate() - 1);
+        break;
+      case '3d':
+        start.setDate(start.getDate() - 3);
+        break;
+      case '5d':
+        start.setDate(start.getDate() - 5);
+        break;
+      case '1w':
+        start.setDate(start.getDate() - 7);
+        break;
+      case '2w':
+        start.setDate(start.getDate() - 14);
+        break;
+      case '1m':
+        start.setMonth(start.getMonth() - 1);
+        break;
+      case '6m':
+        start.setMonth(start.getMonth() - 6);
+        break;
+      case '1y':
+        start.setFullYear(start.getFullYear() - 1);
+        break;
+    }
+
+    return { start, end };
+  };
+
+  const formatDateForAPI = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+
+  const fetchSalesData = async (filter: string, customStart?: string, customEnd?: string) => {
+    try {
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+
+      if (filter === 'custom' && customStart && customEnd) {
+        startDate = customStart;
+        endDate = customEnd;
+      } else {
+        const { start, end } = getDateRangeFromFilter(filter);
+        startDate = formatDateForAPI(start);
+        endDate = formatDateForAPI(end);
+      }
+
+      const stats = await salesApi.getTotalSales(startDate, endDate);
+      setSalesStats(stats);
+    } catch (error) {
+      console.error('[Dashboard] Failed to fetch sales stats:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -74,6 +139,20 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
       setMovementsLoading(false);
+    }
+  };
+
+  const handleSalesFilterChange = (filter: string) => {
+    setSalesFilter(filter as any);
+    if (filter !== 'custom') {
+      fetchSalesData(filter);
+    }
+  };
+
+  const handleCustomDateApply = () => {
+    if (customStartDate && customEndDate) {
+      setSalesFilter('custom');
+      fetchSalesData('custom', customStartDate, customEndDate);
     }
   };
 
@@ -228,6 +307,23 @@ const Dashboard = () => {
       textColor: 'text-blue-800',
       borderColor: 'border-blue-200',
       href: '/dashboard/inventory'
+    },
+    {
+      name: 'Total Sales',
+      value: !salesStats ? '...' : formatCurrency(salesStats.totalSales),
+      subvalue: !salesStats ? '...' : `${salesStats.totalQuantity} items`,
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+      gradient: 'from-purple-500 via-fuchsia-500 to-pink-600',
+      bgGradient: 'from-purple-50 via-fuchsia-100/50 to-pink-50',
+      iconBg: 'bg-gradient-to-br from-purple-400 to-pink-500',
+      textColor: 'text-purple-700',
+      borderColor: 'border-purple-200',
+      href: '/dashboard/sales',
+      isClickable: false
     }
   ];
 
@@ -301,8 +397,8 @@ const Dashboard = () => {
       {/* Content */}
       <div className="px-4 sm:px-6 lg:px-8 py-6 bg-gradient-to-br from-gray-50 via-blue-50/30 to-blue-50/30 min-h-screen">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          {stats.slice(0, 4).map((stat, index) => (
             <a key={index} href={stat.href} className={`block bg-gradient-to-br ${stat.bgGradient} rounded-2xl border-2 ${stat.borderColor} p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer`}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -318,6 +414,89 @@ const Dashboard = () => {
               <div className={`mt-4 h-1.5 rounded-full bg-gradient-to-r ${stat.gradient} opacity-60`}></div>
             </a>
           ))}
+        </div>
+
+        {/* Total Sales Card with Filters */}
+        <div className="mb-8 bg-gradient-to-br from-purple-50 via-fuchsia-100/50 to-pink-50 rounded-2xl border-2 border-purple-200 p-6 shadow-lg">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+                Total Sales
+              </h3>
+              <p className="text-gray-600 text-sm font-medium">
+                {!salesStats ? 'Loading...' : `${salesStats.totalQuantity} items sold • ${formatCurrency(salesStats.salesToday)} today`}
+              </p>
+            </div>
+            <div className={`p-4 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 shadow-lg transform rotate-3 hover:rotate-6 transition-transform`}>
+              <div className="text-white">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-4xl font-bold text-purple-700 mb-6">
+            {!salesStats ? '...' : formatCurrency(salesStats.totalSales)}
+          </div>
+
+          {/* Filter Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {[
+              { key: '24h', label: 'Last 24 hrs' },
+              { key: '3d', label: 'Last 3 days' },
+              { key: '5d', label: 'Last 5 days' },
+              { key: '1w', label: 'Last 1 week' },
+              { key: '2w', label: 'Last 2 weeks' },
+              { key: '1m', label: 'Last month' },
+              { key: '6m', label: 'Last 6 months' },
+              { key: '1y', label: 'Last year' },
+            ].map((filter) => (
+              <button
+                key={filter.key}
+                onClick={() => handleSalesFilterChange(filter.key)}
+                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  salesFilter === filter.key
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg scale-105'
+                    : 'bg-white text-purple-700 border-2 border-purple-200 hover:border-purple-400'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Date Range */}
+          <div className="mt-4 p-4 bg-white rounded-lg border border-purple-200">
+            <p className="text-sm font-semibold text-gray-700 mb-3">Custom Date Range</p>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-600 mb-1 font-medium">From</label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-gray-600 mb-1 font-medium">To</label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+              <button
+                onClick={handleCustomDateApply}
+                disabled={!customStartDate || !customEndDate}
+                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold text-sm hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Location Stats Grid */}

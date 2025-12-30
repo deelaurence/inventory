@@ -171,5 +171,58 @@ export class SalesService {
       .sort({ soldAt: -1 })
       .exec();
   }
+
+  async getTotalSales(startDate?: Date, endDate?: Date): Promise<{ totalSales: number; totalQuantity: number; salesToday: number }> {
+    const query: any = {};
+
+    // If dates are provided, filter by date range
+    if (startDate || endDate) {
+      query.soldAt = {};
+      if (startDate) {
+        query.soldAt.$gte = startDate;
+      }
+      if (endDate) {
+        const adjustedEndDate = new Date(endDate);
+        adjustedEndDate.setHours(23, 59, 59, 999); // End of day
+        query.soldAt.$lte = adjustedEndDate;
+      }
+    }
+
+    // Get all sales in the date range
+    const sales = await this.saleModel.find(query).exec();
+
+    // Calculate total sales (price * quantity)
+    const totalSales = sales.reduce((sum, sale) => {
+      return sum + (sale.price * sale.quantity);
+    }, 0);
+
+    // Calculate total quantity sold
+    const totalQuantity = sales.reduce((sum, sale) => {
+      return sum + sale.quantity;
+    }, 0);
+
+    // Calculate sales for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrowStart = new Date(today);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    const salesTodayList = await this.saleModel.find({
+      soldAt: {
+        $gte: today,
+        $lt: tomorrowStart,
+      },
+    }).exec();
+
+    const salesToday = salesTodayList.reduce((sum, sale) => {
+      return sum + (sale.price * sale.quantity);
+    }, 0);
+
+    return {
+      totalSales: Math.round(totalSales * 100) / 100, // Round to 2 decimal places
+      totalQuantity,
+      salesToday: Math.round(salesToday * 100) / 100,
+    };
+  }
 }
 
