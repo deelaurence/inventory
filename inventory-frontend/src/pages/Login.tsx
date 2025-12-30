@@ -10,6 +10,7 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuthStore();
   const navigate = useNavigate();
 
@@ -117,18 +118,34 @@ const Login = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <div className="mt-2">
+              <div className="mt-2 relative">
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors placeholder-gray-400"
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors placeholder-gray-400"
                   placeholder="Enter your password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {showPassword ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-4.753 4.753m4.753-4.753L3.596 3.596m14.832 14.832L21.5 21.5M9.172 9.172L21 21" />
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
 

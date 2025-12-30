@@ -50,9 +50,12 @@ async function bootstrap() {
       }
     }
 
+
+    const email1 = 'ejike@solution.com';
+    const email2 = 'divine@solution.com';
     // Check if users already exist
-    const existingUser1 = await usersService.findByEmail('email@test.com');
-    const existingUser2 = await usersService.findByEmail('user2@test.com');
+    const existingUser1 = await usersService.findByEmail(email1);
+    const existingUser2 = await usersService.findByEmail(email2);
 
     if (existingUser1 && existingUser2) {
       console.log('Users already exist in database');
@@ -61,8 +64,8 @@ async function bootstrap() {
 
     // Create test users (admins)
     const users = [
-      { name: 'Ejike', email: 'email@test.com', password: 'password123' },
-      { name: 'Divine', email: 'user2@test.com', password: 'password123' },
+      { name: 'Ejike', email: email1, password: 'ejike123' },
+      { name: 'Divine', email: email2, password: 'divine123' },
     ];
 
     for (const user of users) {

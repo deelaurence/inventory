@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { productsApi, type Product } from '../services/productsApi';
+import { productsApi, type Product, type LocationStats } from '../services/productsApi';
 import { movementsApi, type Movement } from '../services/movementsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
 import Loader from '../components/Loader';
@@ -11,6 +11,7 @@ const Dashboard = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [locationStats, setLocationStats] = useState<LocationStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [movementsLoading, setMovementsLoading] = useState(true);
 
@@ -53,9 +54,14 @@ const Dashboard = () => {
       const locationsData = await locationsApi.fetchLocations();
       console.log('[Dashboard] Locations fetched successfully, count:', locationsData.length);
       
+      console.log('[Dashboard] Calling productsApi.getProductsByLocationStats()');
+      const locationStatsData = await productsApi.getProductsByLocationStats();
+      console.log('[Dashboard] Location stats fetched successfully, count:', locationStatsData.length);
+      
       setProducts(productsResponse.data);
       setMovements(movementsResponse.data); // Get latest 5 movements
       setLocations(locationsData);
+      setLocationStats(locationStatsData);
       console.log('[Dashboard] Data fetch completed successfully');
     } catch (error: any) {
       console.error('[Dashboard] Failed to fetch data:', error);
@@ -175,7 +181,8 @@ const Dashboard = () => {
       bgGradient: 'from-blue-50 via-blue-100/50 to-indigo-50',
       iconBg: 'bg-gradient-to-br from-blue-400 to-indigo-500',
       textColor: 'text-blue-700',
-      borderColor: 'border-blue-200'
+      borderColor: 'border-blue-200',
+      href: '/dashboard/inventory'
     },
     {
       name: 'In Stock',
@@ -189,7 +196,8 @@ const Dashboard = () => {
       bgGradient: 'from-emerald-50 via-green-100/50 to-teal-50',
       iconBg: 'bg-gradient-to-br from-emerald-400 to-teal-500',
       textColor: 'text-emerald-700',
-      borderColor: 'border-emerald-200'
+      borderColor: 'border-emerald-200',
+      href: '/dashboard/inventory'
     },
     {
       name: 'Low Stock',
@@ -203,7 +211,8 @@ const Dashboard = () => {
       bgGradient: 'from-amber-50 via-orange-100/50 to-yellow-50',
       iconBg: 'bg-gradient-to-br from-amber-400 to-orange-500',
       textColor: 'text-amber-700',
-      borderColor: 'border-amber-200'
+      borderColor: 'border-amber-200',
+      href: '/dashboard/inventory'
     },
     {
       name: 'Total Value',
@@ -217,7 +226,8 @@ const Dashboard = () => {
       bgGradient: 'from-blue-50 via-pink-100/50 to-rose-50',
       iconBg: 'bg-gradient-to-br from-blue-400 to-pink-500',
       textColor: 'text-blue-800',
-      borderColor: 'border-blue-200'
+      borderColor: 'border-blue-200',
+      href: '/dashboard/inventory'
     }
   ];
 
@@ -263,21 +273,6 @@ const Dashboard = () => {
       hoverGradient: 'from-teal-600 to-emerald-600',
       bgGradient: 'from-teal-50 to-emerald-50',
       textColor: 'text-teal-700'
-    },
-    {
-      name: 'Settings',
-      description: 'Configure system preferences',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-      href: '/dashboard/settings',
-      gradient: 'from-rose-500 to-pink-500',
-      hoverGradient: 'from-rose-600 to-pink-600',
-      bgGradient: 'from-rose-50 to-pink-50',
-      textColor: 'text-rose-700'
     }
   ];
 
@@ -308,7 +303,7 @@ const Dashboard = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, index) => (
-            <div key={index} className={`bg-gradient-to-br ${stat.bgGradient} rounded-2xl border-2 ${stat.borderColor} p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}>
+            <a key={index} href={stat.href} className={`block bg-gradient-to-br ${stat.bgGradient} rounded-2xl border-2 ${stat.borderColor} p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer`}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <p className={`text-sm font-semibold ${stat.textColor} mb-1`}>{stat.name}</p>
@@ -321,7 +316,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className={`mt-4 h-1.5 rounded-full bg-gradient-to-r ${stat.gradient} opacity-60`}></div>
-            </div>
+            </a>
           ))}
         </div>
 
@@ -342,25 +337,40 @@ const Dashboard = () => {
                 const locationStyle = locationGradients[index % locationGradients.length];
                 const productCount = loading ? '...' : getProductsByLocation(location._id).toLocaleString();
                 
+                // Get total quantity for this location from locationStats
+                const locationStat = locationStats.find(stat => stat.locationName === location.name);
+                const totalQuantity = loading ? '...' : (locationStat?.totalQuantity || 0).toLocaleString();
+                
                 return (
-                  <div key={location._id} className={`bg-gradient-to-br ${locationStyle.bgGradient} rounded-2xl border-2 ${locationStyle.borderColor} p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}>
-                    <div className="flex items-center justify-between">
+                  <a key={location._id} href="/dashboard/inventory" className={`block bg-gradient-to-br ${locationStyle.bgGradient} rounded-2xl border-2 ${locationStyle.borderColor} p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer`}>
+                    <div className="flex items-center justify-between mb-4">
                       <div className="flex-1">
                         <p className={`text-sm font-semibold ${locationStyle.textColor} mb-1`}>{location.name}</p>
-                        <p className={`text-3xl font-bold ${locationStyle.textColor} mt-1`}>{productCount}</p>
-                        <p className={`text-xs ${locationStyle.textColor} opacity-70 mt-1`}>products</p>
                       </div>
-                      <div className={`p-4 rounded-xl ${locationStyle.iconBg} shadow-lg transform rotate-3 hover:rotate-6 transition-transform`}>
+                      <div className={`p-3 rounded-xl ${locationStyle.iconBg} shadow-lg transform rotate-3 hover:rotate-6 transition-transform`}>
                         <div className="text-white">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Two rows of stats */}
+                    <div className="space-y-4">
+                      <div className="bg-white/50 rounded-lg p-3">
+                        <p className={`text-xs ${locationStyle.textColor} opacity-70 mb-1`}>Products</p>
+                        <p className={`text-2xl font-bold ${locationStyle.textColor}`}>{productCount}</p>
+                      </div>
+                      <div className="bg-white/50 rounded-lg p-3">
+                        <p className={`text-xs ${locationStyle.textColor} opacity-70 mb-1`}>Total Quantity</p>
+                        <p className={`text-2xl font-bold ${locationStyle.textColor}`}>{totalQuantity}</p>
+                      </div>
+                    </div>
+                    
                     <div className={`mt-4 h-1.5 rounded-full bg-gradient-to-r ${locationStyle.gradient} opacity-60`}></div>
-                  </div>
+                  </a>
                 );
               })}
             </div>

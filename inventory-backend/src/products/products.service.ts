@@ -419,4 +419,38 @@ export class ProductsService {
 
     return updatedProduct;
   }
+
+  async getProductsByLocationStats(): Promise<Array<{ locationId: string; locationName: string; totalQuantity: number }>> {
+    const products = await this.productModel
+      .find()
+      .populate('locations.locationId', 'name')
+      .exec();
+
+    const locationMap = new Map<string, { locationName: string; totalQuantity: number }>();
+
+    for (const product of products) {
+      for (const location of product.locations) {
+        const locationId = (location.locationId as any)._id?.toString();
+        const locationName = (location.locationId as any).name || '';
+        
+        if (!locationMap.has(locationId)) {
+          locationMap.set(locationId, {
+            locationName,
+            totalQuantity: 0,
+          });
+        }
+        
+        const current = locationMap.get(locationId)!;
+        current.totalQuantity += location.quantity;
+      }
+    }
+
+    // Convert map to array and sort by quantity descending
+    return Array.from(locationMap.entries())
+      .map(([locationId, data]) => ({
+        locationId,
+        ...data,
+      }))
+      .sort((a, b) => b.totalQuantity - a.totalQuantity);
+  }
 }

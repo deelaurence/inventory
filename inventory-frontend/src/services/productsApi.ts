@@ -75,6 +75,12 @@ export interface UpdateProductInventoryDto {
   importLocationId?: string;
 }
 
+export interface LocationStats {
+  locationId: string;
+  locationName: string;
+  totalQuantity: number;
+}
+
 export interface PaginationParams {
   page?: number;
   limit?: number;
@@ -125,6 +131,11 @@ export const productsApi = {
   updateProductAndInventory: async (data: UpdateProductInventoryDto & { productId: string }): Promise<Product> => {
     const { productId, ...updateData } = data;
     const response = await api.patch(`/products/${productId}/update-inventory`, updateData);
+    return response.data;
+  },
+
+  getProductsByLocationStats: async (): Promise<LocationStats[]> => {
+    const response = await api.get('/products/stats/by-location');
     return response.data;
   },
 };
