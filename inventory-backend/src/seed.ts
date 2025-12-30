@@ -58,7 +58,7 @@ async function bootstrap() {
     const existingUser2 = await usersService.findByEmail(email2);
 
     if (existingUser1 && existingUser2) {
-      console.log('Users already exist in database');
+      console.log('Users already exist in database..');
       return;
     }
 
