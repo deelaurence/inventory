@@ -155,23 +155,46 @@ const Sell = () => {
     setSalesPage(1);
   };
 
-  // Get available products for a given location
-  const getAvailableProducts = (locationId: string) => {
+  // Get available products for a given location, excluding products already picked in other rows for the same location
+  const getAvailableProducts = (locationId: string, excludeProductIds: string[] = []) => {
+    const exclude = new Set(excludeProductIds.filter(Boolean));
     if (!locationId) {
-      return products.filter(p => p.locations.some(loc => loc.quantity > 0));
+      return products
+        .filter(p => p.locations.some(loc => loc.quantity > 0))
+        .filter(p => !exclude.has(p._id));
     }
-    return products.filter(p => {
+
+    return products
+      .filter(p => {
         const location = p.locations.find(loc => {
           const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
           return lid === locationId;
         });
-      return location && location.quantity > 0;
-    });
+        return location && location.quantity > 0;
+      })
+      .filter(p => !exclude.has(p._id));
   };
 
   // Handle change for a product row
   const handleProductRowChange = (idx: number, field: string, value: string) => {
-    setProductsInSale(rows => rows.map((row, i) => i === idx ? { ...row, [field]: value } : row));
+    setProductsInSale(rows => rows.map((row, i) => {
+      if (i !== idx) return row;
+
+      // If location changes, clear dependent fields so we don't keep an invalid product/qty/price
+      if (field === 'locationId') {
+        return {
+          ...row,
+          locationId: value,
+          productId: '',
+          quantity: '',
+          unitPrice: '',
+          availableQuantity: 0,
+          selectedProduct: null,
+        };
+      }
+
+      return { ...row, [field]: value };
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -364,7 +387,13 @@ const Sell = () => {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Product *</label>
                           <SearchableSelect
-                            options={getAvailableProducts(row.locationId)}
+                            options={getAvailableProducts(
+                              row.locationId,
+                              productsInSale
+                                .filter((_, i) => i !== idx)
+                                .filter(r => r.locationId === row.locationId)
+                                .map(r => r.productId)
+                            )}
                             value={row.productId}
                             onChange={value => handleProductRowChange(idx, 'productId', value)}
                             getOptionLabel={product => {
@@ -383,7 +412,13 @@ const Sell = () => {
                           {!row.locationId && (
                             <p className="mt-1 text-xs text-gray-500">Please select a location first to see available products</p>
                           )}
-                          {row.locationId && getAvailableProducts(row.locationId).length === 0 && (
+                          {row.locationId && getAvailableProducts(
+                            row.locationId,
+                            productsInSale
+                              .filter((_, i) => i !== idx)
+                              .filter(r => r.locationId === row.locationId)
+                              .map(r => r.productId)
+                          ).length === 0 && (
                             <p className="mt-1 text-xs text-red-600">No products available at this location</p>
                           )}
                         </div>
