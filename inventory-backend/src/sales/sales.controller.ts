@@ -11,6 +11,7 @@ export class SalesController {
 
   @Post()
   async create(@Body() createSaleDto: CreateSaleDto, @Request() req) {
+    // createSaleDto.products is now an array
     return this.salesService.create(createSaleDto, req.user.sub);
   }
 

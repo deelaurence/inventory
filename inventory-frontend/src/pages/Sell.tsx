@@ -33,16 +33,11 @@ const Sell = () => {
   const [salesTotal, setSalesTotal] = useState(0);
   const [salesTotalPages, setSalesTotalPages] = useState(0);
 
-  const [formData, setFormData] = useState({
-    productId: '',
-    locationId: '',
-    quantity: '',
-    price: '',
-    notes: ''
-  });
-
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [availableQuantity, setAvailableQuantity] = useState(0);
+  // Multi-product sale state
+  const [productsInSale, setProductsInSale] = useState([
+    { productId: '', locationId: '', quantity: '', unitPrice: '', availableQuantity: 0, selectedProduct: null as Product | null }
+  ]);
+  const [notes, setNotes] = useState('');
 
   // Calculate profit helper
   const calculateProfit = (costPrice: number, sellingPrice: number) => {
@@ -74,29 +69,31 @@ const Sell = () => {
     }
   }, [activeTab, salesPage, salesSearch, salesStartDate, salesEndDate]);
 
+  // Update availableQuantity and selectedProduct for each row
   useEffect(() => {
-    if (formData.productId && formData.locationId) {
-      const product = products.find(p => p._id === formData.productId);
-      if (product) {
-        setSelectedProduct(product);
-        const location = product.locations.find(
-          loc => loc.locationId._id === formData.locationId
-        );
-        if (location) {
-          setAvailableQuantity(location.quantity);
-          // Set suggested price if product has selling price
-          if (product.sellingPrice !== undefined && product.sellingPrice !== null && !formData.price) {
-            setFormData(prev => ({ ...prev, price: product.sellingPrice!.toString() }));
+    setProductsInSale((rows) => rows.map((row) => {
+      if (row.productId && row.locationId) {
+        const product = products.find(p => p._id === row.productId);
+        if (product) {
+          const location = product.locations.find((loc) => {
+            const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+            return lid === row.locationId;
+          });
+          let autoPrice = row.unitPrice;
+          if (product.sellingPrice !== undefined && product.sellingPrice !== null && !row.unitPrice) {
+            autoPrice = product.sellingPrice.toString();
           }
-        } else {
-          setAvailableQuantity(0);
+          return {
+            ...row,
+            selectedProduct: product,
+            availableQuantity: location ? location.quantity : 0,
+            unitPrice: autoPrice
+          };
         }
       }
-    } else {
-      setSelectedProduct(null);
-      setAvailableQuantity(0);
-    }
-  }, [formData.productId, formData.locationId, products]);
+      return { ...row, selectedProduct: null, availableQuantity: 0 };
+    }));
+  }, [products, productsInSale.map(r => r.productId).join(), productsInSale.map(r => r.locationId).join()]);
 
   const fetchData = async () => {
     try {
@@ -158,25 +155,23 @@ const Sell = () => {
     setSalesPage(1);
   };
 
-  // Get available products for selected location
-  const getAvailableProducts = () => {
-    if (!formData.locationId) {
-      // If no location selected, show all products with stock anywhere
-      return products.filter(p => {
-        const totalQuantity = p.locations.reduce((sum, loc) => sum + loc.quantity, 0);
-        return totalQuantity > 0;
-      });
+  // Get available products for a given location
+  const getAvailableProducts = (locationId: string) => {
+    if (!locationId) {
+      return products.filter(p => p.locations.some(loc => loc.quantity > 0));
     }
-    // Filter products that have stock at the selected location
     return products.filter(p => {
-      const location = p.locations.find(loc => loc.locationId._id === formData.locationId);
+        const location = p.locations.find(loc => {
+          const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+          return lid === locationId;
+        });
       return location && location.quantity > 0;
     });
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  // Handle change for a product row
+  const handleProductRowChange = (idx: number, field: string, value: string) => {
+    setProductsInSale(rows => rows.map((row, i) => i === idx ? { ...row, [field]: value } : row));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -185,63 +180,54 @@ const Sell = () => {
     setError('');
     setSuccess(false);
 
-    // Validate
-    if (!formData.productId || !formData.locationId || !formData.quantity || !formData.price) {
-      setError('Please fill in all required fields');
-      setSubmitting(false);
-      return;
-    }
-
-    const quantity = parseInt(formData.quantity);
-    const price = parseFloat(formData.price);
-
-    if (isNaN(quantity) || quantity <= 0) {
-      setError('Quantity must be a positive number');
-      setSubmitting(false);
-      return;
-    }
-
-    if (quantity > availableQuantity) {
-      setError(`Insufficient stock. Available: ${availableQuantity}`);
-      setSubmitting(false);
-      return;
-    }
-
-    if (isNaN(price) || price <= 0) {
-      setError('Price must be a positive number');
-      setSubmitting(false);
-      return;
+    // Validate all product rows
+    for (const [idx, row] of productsInSale.entries()) {
+      if (!row.productId || !row.locationId || !row.quantity || !row.unitPrice) {
+        setError(`Please fill in all required fields for product #${idx + 1}`);
+        setSubmitting(false);
+        return;
+      }
+      const quantity = parseInt(row.quantity);
+      if (isNaN(quantity) || quantity <= 0) {
+        setError(`Quantity must be a positive number for product #${idx + 1}`);
+        setSubmitting(false);
+        return;
+      }
+      if (quantity > row.availableQuantity) {
+        setError(`Insufficient stock for product #${idx + 1}. Available: ${row.availableQuantity}`);
+        setSubmitting(false);
+        return;
+      }
+      const price = parseFloat(row.unitPrice);
+      if (isNaN(price) || price <= 0) {
+        setError(`Price must be a positive number for product #${idx + 1}`);
+        setSubmitting(false);
+        return;
+      }
     }
 
     try {
       await salesApi.createSale({
-        productId: formData.productId,
-        locationId: formData.locationId,
-        quantity,
-        price,
-        notes: formData.notes || undefined
+        products: productsInSale.map(row => ({
+          productId: row.productId,
+          locationId: row.locationId,
+          quantity: parseInt(row.quantity),
+          unitPrice: parseFloat(row.unitPrice)
+        })),
+        notes: notes || undefined
       });
 
       setSuccess(true);
-      setFormData({
-        productId: '',
-        locationId: '',
-        quantity: '',
-        price: '',
-        notes: ''
-      });
-      setSelectedProduct(null);
-      setAvailableQuantity(0);
+      setProductsInSale([
+        { productId: '', locationId: '', quantity: '', unitPrice: '', availableQuantity: 0, selectedProduct: null }
+      ]);
+      setNotes('');
 
       // Refresh data to update stock levels
       await fetchData();
-      
-      // Refresh sales list if on sales tab
       if (activeTab === 'sales') {
         await fetchSales();
       }
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create sale');
@@ -327,321 +313,253 @@ const Sell = () => {
           {activeTab === 'sell' && (
             <div className="w-full">
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-emerald-200 shadow-xl">
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {error && (
-                <div className="bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-300 rounded-xl p-4 shadow-lg">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <span className="text-sm font-semibold text-red-800">{error}</span>
-                  </div>
-                </div>
-              )}
-
-              {success && (
-                <div className="bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-300 rounded-xl p-4 shadow-lg">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-emerald-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm font-semibold text-emerald-800">Sale recorded successfully! Inventory updated.</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Location Selection - First */}
-              <div>
-                <label htmlFor="locationId" className="block text-sm font-medium text-gray-700 mb-2">
-                  Shop/Location *
-                </label>
-                <SearchableSelect
-                  options={locations}
-                  value={formData.locationId}
-                  onChange={(value) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      locationId: value,
-                      productId: '',
-                      quantity: '',
-                      price: ''
-                    }));
-                    setSelectedProduct(null);
-                    setAvailableQuantity(0);
-                  }}
-                  getOptionLabel={(location) => location.name}
-                  getOptionValue={(location) => location._id}
-                  placeholder="Select shop/location..."
-                  limit={50}
-                />
-              </div>
-
-              {/* Product Selection */}
-              <div>
-                <label htmlFor="productId" className="block text-sm font-medium text-gray-700 mb-2">
-                  Product *
-                </label>
-                <SearchableSelect
-                  options={getAvailableProducts()}
-                  value={formData.productId}
-                  onChange={(value) => setFormData(prev => ({ ...prev, productId: value }))}
-                  getOptionLabel={(product) => {
-                    const location = product.locations.find(loc => loc.locationId._id === formData.locationId);
-                    const stock = location ? location.quantity : 0;
-                    return `${product.description} (${product.partsNumber}) - ${stock} in stock`;
-                  }}
-                  getOptionValue={(product) => product._id}
-                  placeholder="Select a product..."
-                  disabled={!formData.locationId}
-                  limit={50}
-                />
-                {!formData.locationId && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    Please select a location first to see available products
-                  </p>
-                )}
-                {formData.locationId && getAvailableProducts().length === 0 && (
-                  <p className="mt-1 text-xs text-red-600">
-                    No products available at this location
-                  </p>
-                )}
-              </div>
-
-              {/* Stock Info */}
-              {formData.productId && formData.locationId && availableQuantity > 0 && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-sm font-medium text-green-800">
-                      Available stock: {availableQuantity} units
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Product Price Info */}
-              {selectedProduct && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Product Pricing Information</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-3">
-                    <div>
-                      <span className="text-xs text-gray-500">Cost Price:</span>
-                      <div className="text-sm font-medium text-gray-900">{getCurrencySymbol()}{selectedProduct.unitPrice.toLocaleString()}</div>
-                    </div>
-                    {selectedProduct.sellingPrice && (
-                      <div>
-                        <span className="text-xs text-gray-500">Suggested Selling Price:</span>
-                        <div className="text-sm font-medium text-gray-900">{getCurrencySymbol()}{selectedProduct.sellingPrice.toLocaleString()}</div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                  {error && (
+                    <div className="bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-300 rounded-xl p-4 shadow-lg">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <span className="text-sm font-semibold text-red-800">{error}</span>
                       </div>
-                    )}
-                  </div>
-                  {selectedProduct.sellingPrice && (
-                    (() => {
-                      const profitCalc = calculateProfit(selectedProduct.unitPrice, selectedProduct.sellingPrice);
-                      return profitCalc ? (
-                        <div className={`p-2 rounded-lg ${profitCalc.profit >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                          <div className="flex items-center justify-between text-xs">
-                            <span className={profitCalc.profit >= 0 ? 'text-green-700' : 'text-red-700'}>
-                              {profitCalc.profit >= 0 ? 'Profit' : 'Loss'} per unit:
-                            </span>
-                            <span className={`font-semibold ${profitCalc.profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                              {getCurrencySymbol()}{Math.abs(profitCalc.profit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
-                            </span>
-                          </div>
+                    </div>
+                  )}
+                  {success && (
+                    <div className="bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-300 rounded-xl p-4 shadow-lg">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 text-emerald-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm font-semibold text-emerald-800">Sale recorded successfully! Inventory updated.</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dynamic product rows */}
+                  {productsInSale.map((row, idx) => (
+                    <div key={idx} className="border-b border-gray-200 pb-6 mb-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-md font-semibold text-gray-800">Product #{idx + 1}</h3>
+                        {productsInSale.length > 1 && (
+                          <button type="button" className="text-red-600 text-xs font-bold" onClick={() => setProductsInSale(rows => rows.filter((_, i) => i !== idx))}>
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Location */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Shop/Location *</label>
+                          <SearchableSelect
+                            options={locations}
+                            value={row.locationId}
+                            onChange={value => handleProductRowChange(idx, 'locationId', value)}
+                            getOptionLabel={location => location.name}
+                            getOptionValue={location => location._id}
+                            placeholder="Select shop/location..."
+                            limit={50}
+                          />
                         </div>
-                      ) : null;
-                    })()
-                  )}
-                  
-                  {/* Price Comparisons */}
-                  {selectedProduct.priceComparisons && selectedProduct.priceComparisons.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <h4 className="text-xs font-semibold text-gray-700 mb-2">Price Comparisons from Import Locations:</h4>
-                      <div className="space-y-1">
-                        {selectedProduct.priceComparisons
-                          .filter(pc => pc && pc.importLocationId && pc.price !== undefined && pc.price !== null)
-                          .map((pc, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-xs bg-white rounded p-2">
-                              <span className="text-gray-600">
-                                {pc.importLocationId && typeof pc.importLocationId === 'object' && pc.importLocationId !== null
-                                  ? `${pc.importLocationId.name || 'Unknown'}${pc.importLocationId.country ? ` (${pc.importLocationId.country})` : ''}`
-                                  : 'Unknown Location'}:
-                              </span>
-                              <span className="font-medium text-gray-900">{getCurrencySymbol()}{pc.price?.toLocaleString() || '0'}</span>
+                        {/* Product */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Product *</label>
+                          <SearchableSelect
+                            options={getAvailableProducts(row.locationId)}
+                            value={row.productId}
+                            onChange={value => handleProductRowChange(idx, 'productId', value)}
+                            getOptionLabel={product => {
+                              const location = product.locations.find((loc) => {
+                                const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+                                return lid === row.locationId;
+                              });
+                              const stock = location ? location.quantity : 0;
+                              return `${product.description} (${product.partsNumber}) - ${stock} in stock`;
+                            }}
+                            getOptionValue={product => product._id}
+                            placeholder="Select a product..."
+                            disabled={!row.locationId}
+                            limit={50}
+                          />
+                          {!row.locationId && (
+                            <p className="mt-1 text-xs text-gray-500">Please select a location first to see available products</p>
+                          )}
+                          {row.locationId && getAvailableProducts(row.locationId).length === 0 && (
+                            <p className="mt-1 text-xs text-red-600">No products available at this location</p>
+                          )}
+                        </div>
+                        {/* Quantity */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Quantity *</label>
+                          <input
+                            type="number"
+                            value={row.quantity}
+                            onChange={e => handleProductRowChange(idx, 'quantity', e.target.value)}
+                            required
+                            min="1"
+                            max={row.availableQuantity}
+                            disabled={!row.locationId || row.availableQuantity === 0}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            placeholder="0"
+                          />
+                          {row.productId && row.locationId && row.availableQuantity > 0 && (
+                            <div className="text-xs text-green-700 mt-1">Available: {row.availableQuantity}</div>
+                          )}
+                        </div>
+                        {/* Price */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Selling Price *</label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <span className="text-gray-500 text-sm">{getCurrencySymbol()}</span>
                             </div>
-                          ))}
+                            <input
+                              type="number"
+                              value={row.unitPrice}
+                              onChange={e => handleProductRowChange(idx, 'unitPrice', e.target.value)}
+                              required
+                              min="0"
+                              step="0.01"
+                              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          {row.selectedProduct && row.unitPrice && parseFloat(row.unitPrice) > 0 && (() => {
+                            const profitCalc = calculateProfit(row.selectedProduct.unitPrice, parseFloat(row.unitPrice));
+                            return profitCalc ? (
+                              <div className={`mt-2 p-2 rounded-lg text-xs ${profitCalc.profit >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                                <div className="flex items-center justify-between">
+                                  <span className={profitCalc.profit >= 0 ? 'text-green-700' : 'text-red-700'}>
+                                    {profitCalc.profit >= 0 ? '✓ Profit' : '⚠ Loss'} per unit:
+                                  </span>
+                                  <span className={`font-semibold ${profitCalc.profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                    {getCurrencySymbol()}{Math.abs(profitCalc.profit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
+                                  </span>
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
                       </div>
+                      {/* Product Price Info */}
+                      {row.selectedProduct && (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Product Pricing Information</h3>
+                          <div className="grid grid-cols-2 gap-4 mb-3">
+                            <div>
+                              <span className="text-xs text-gray-500">Cost Price:</span>
+                              <div className="text-sm font-medium text-gray-900">{getCurrencySymbol()}{row.selectedProduct.unitPrice.toLocaleString()}</div>
+                            </div>
+                            {row.selectedProduct.sellingPrice && (
+                              <div>
+                                <span className="text-xs text-gray-500">Suggested Selling Price:</span>
+                                <div className="text-sm font-medium text-gray-900">{getCurrencySymbol()}{row.selectedProduct.sellingPrice.toLocaleString()}</div>
+                              </div>
+                            )}
+                          </div>
+                          {row.selectedProduct.sellingPrice && (() => {
+                            const profitCalc = calculateProfit(row.selectedProduct.unitPrice, row.selectedProduct.sellingPrice);
+                            return profitCalc ? (
+                              <div className={`p-2 rounded-lg ${profitCalc.profit >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className={profitCalc.profit >= 0 ? 'text-green-700' : 'text-red-700'}>
+                                    {profitCalc.profit >= 0 ? 'Profit' : 'Loss'} per unit:
+                                  </span>
+                                  <span className={`font-semibold ${profitCalc.profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                    {getCurrencySymbol()}{Math.abs(profitCalc.profit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
+                                  </span>
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* Quantity and Price */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
-                    Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    id="quantity"
-                    name="quantity"
-                    value={formData.quantity}
-                    onChange={handleChange}
-                    required
-                    min="1"
-                    max={availableQuantity}
-                    disabled={!formData.locationId || availableQuantity === 0}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="0"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
-                    Selling Price *
-                    {selectedProduct?.sellingPrice && (
-                      <span className="ml-2 text-xs text-gray-500 font-normal">
-                        (Suggested: {getCurrencySymbol()}{selectedProduct.sellingPrice.toLocaleString()})
-                      </span>
-                    )}
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500 text-sm">{getCurrencySymbol()}</span>
-                    </div>
-                    <input
-                      type="number"
-                      id="price"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleChange}
-                      required
-                      min="0"
-                      step="0.01"
-                      className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="0.00"
+                  ))}
+                  {/* Add product button */}
+                  <div className="flex justify-end mt-4">
+                    <button type="button" className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-semibold text-sm hover:bg-blue-200 transition-all" onClick={() => setProductsInSale(rows => [...rows, { productId: '', locationId: '', quantity: '', unitPrice: '', availableQuantity: 0, selectedProduct: null }])}>
+                      + Add Another Product
+                    </button>
+                  </div>
+                  {/* Notes */}
+                  <div>
+                    <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                    <textarea
+                      id="notes"
+                      name="notes"
+                      value={notes}
+                      onChange={e => setNotes(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                      placeholder="Add any notes about this sale..."
                     />
                   </div>
-                  {formData.price && selectedProduct && parseFloat(formData.price) > 0 && (
-                    (() => {
-                      const profitCalc = calculateProfit(selectedProduct.unitPrice, parseFloat(formData.price));
-                      return profitCalc ? (
-                        <div className={`mt-2 p-2 rounded-lg text-xs ${profitCalc.profit >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                          <div className="flex items-center justify-between">
-                            <span className={profitCalc.profit >= 0 ? 'text-green-700' : 'text-red-700'}>
-                              {profitCalc.profit >= 0 ? '✓ Profit' : '⚠ Loss'} per unit:
-                            </span>
-                            <span className={`font-semibold ${profitCalc.profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                              {getCurrencySymbol()}{Math.abs(profitCalc.profit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
-                            </span>
-                          </div>
+                  {/* Sale Summary */}
+                  {productsInSale.length > 0 && productsInSale.every(row => row.quantity && row.unitPrice && parseFloat(row.quantity) > 0 && parseFloat(row.unitPrice) > 0) && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                      <h3 className="text-sm font-semibold text-blue-900 mb-2">Sale Summary</h3>
+                      <div className="space-y-1 text-sm text-blue-800">
+                        {productsInSale.map((row, idx) => {
+                          const name = row.selectedProduct ? row.selectedProduct.description : `Product #${idx + 1}`;
+                          const qty = parseFloat(row.quantity);
+                          const price = parseFloat(row.unitPrice);
+                          const qtySafe = isNaN(qty) ? 0 : qty;
+                          const priceSafe = isNaN(price) ? 0 : price;
+                          return (
+                            <div key={idx} className="flex justify-between">
+                              <span>{name}:</span>
+                              <span className="font-medium">{qtySafe} × {getCurrencySymbol()}{(typeof priceSafe === 'number' && !isNaN(priceSafe) ? priceSafe.toLocaleString() : '0')} = {getCurrencySymbol()}{(typeof qtySafe === 'number' && typeof priceSafe === 'number' && !isNaN(qtySafe) && !isNaN(priceSafe) ? (qtySafe * priceSafe).toLocaleString() : '0')}</span>
+                            </div>
+                          );
+                        })}
+                        <div className="flex justify-between pt-2 border-t border-blue-200">
+                          <span className="font-semibold">Total Amount:</span>
+                          <span className="font-bold text-lg">{getCurrencySymbol()}{productsInSale.reduce((sum, row) => {
+                            const qty = parseFloat(row.quantity) || 0;
+                            const price = parseFloat(row.unitPrice) || 0;
+                            return sum + (qty * price);
+                          }, 0).toLocaleString()}</span>
                         </div>
-                      ) : null;
-                    })()
+                      </div>
+                    </div>
                   )}
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
-                  Notes (Optional)
-                </label>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
-                  placeholder="Add any notes about this sale..."
-                />
-              </div>
-
-              {/* Sale Summary */}
-              {formData.quantity && formData.price && parseFloat(formData.quantity) > 0 && parseFloat(formData.price) > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Sale Summary</h3>
-                  <div className="space-y-1 text-sm text-blue-800">
-                    <div className="flex justify-between">
-                      <span>Quantity:</span>
-                      <span className="font-medium">{formData.quantity} units</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Price per unit:</span>
-                      <span className="font-medium">{getCurrencySymbol()}{parseFloat(formData.price).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t border-blue-200">
-                      <span className="font-semibold">Total Amount:</span>
-                      <span className="font-bold text-lg">{getCurrencySymbol()}{(parseFloat(formData.quantity) * parseFloat(formData.price)).toLocaleString()}</span>
-                    </div>
-                    {selectedProduct && (
-                      (() => {
-                        const profitCalc = calculateProfit(selectedProduct.unitPrice, parseFloat(formData.price));
-                        const totalProfit = profitCalc ? profitCalc.profit * parseFloat(formData.quantity) : null;
-                        return profitCalc && totalProfit !== null ? (
-                          <div className={`flex justify-between pt-2 border-t border-blue-200 ${profitCalc.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                            <span className="font-semibold">
-                              Total {profitCalc.profit >= 0 ? 'Profit' : 'Loss'}:
-                            </span>
-                            <span className="font-bold text-lg">
-                              {getCurrencySymbol()}{Math.abs(totalProfit).toLocaleString()} ({profitCalc.profitPercentage >= 0 ? '+' : ''}{profitCalc.profitPercentage.toFixed(1)}%)
-                            </span>
-                          </div>
-                        ) : null;
-                      })()
-                    )}
+                  {/* Actions */}
+                  <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProductsInSale([{ productId: '', locationId: '', quantity: '', unitPrice: '', availableQuantity: 0, selectedProduct: null }]);
+                        setNotes('');
+                        setError('');
+                        setSuccess(false);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting || productsInSale.some(row => !row.productId || !row.locationId || row.availableQuantity === 0)}
+                      className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader size="sm" text="" color="blue" className="mr-2" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Complete Sale
+                        </>
+                      )}
+                    </button>
                   </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData({
-                      productId: '',
-                      locationId: '',
-                      quantity: '',
-                      price: '',
-                      notes: ''
-                    });
-                    setSelectedProduct(null);
-                    setAvailableQuantity(0);
-                    setError('');
-                    setSuccess(false);
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Clear
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || !formData.productId || !formData.locationId || availableQuantity === 0}
-                  className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader size="sm" text="" color="blue" className="mr-2" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Complete Sale
-                    </>
-                  )}
-                </button>
+                </form>
               </div>
-            </form>
-          </div>
-        </div>
+            </div>
           )}
 
           {/* Sales List Tab */}
@@ -775,39 +693,82 @@ const Sell = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {sales.map((sale) => (
-                          <tr key={sale._id} className="hover:bg-gray-50 transition-colors">
+                        {sales.map((sale) => {
+                          const productsArr = Array.isArray(sale.products) ? sale.products : [];
+                          const extraCount = Math.max(0, productsArr.length - 1);
+                          const firstItem = productsArr[0];
+                          const firstProduct = firstItem?.productId && typeof firstItem.productId === 'object' ? firstItem.productId : null;
+                          const firstLocation = firstItem?.locationId && typeof firstItem.locationId === 'object' ? firstItem.locationId : null;
+                          const firstUnitPrice = (() => {
+                            const v = firstItem?.unitPrice;
+                            return typeof v === 'number' ? v : parseFloat(v) || 0;
+                          })();
+
+                          const totalQuantity = productsArr.reduce((s: number, p: any) => s + (p?.quantity || 0), 0);
+                          const totalAmount = productsArr.reduce((s: number, p: any) => {
+                            const price = typeof p?.unitPrice === 'number' ? p.unitPrice : parseFloat(p?.unitPrice) || 0;
+                            return s + ((p?.quantity || 0) * price);
+                          }, 0);
+
+                          return (
+                          <tr
+                            key={sale._id}
+                            className="hover:bg-gray-50 transition-colors cursor-pointer"
+                            onClick={() => setSelectedSale(sale)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setSelectedSale(sale);
+                              }
+                            }}
+                          >
                             <td className="px-6 py-4">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {sale.productId && typeof sale.productId === 'object' && sale.productId !== null 
-                                    ? sale.productId.description 
-                                    : 'Unknown Product'}
+                              {productsArr.length === 0 ? (
+                                <div className="text-sm font-medium text-gray-900">No products</div>
+                              ) : (
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{firstProduct?.description || 'Unknown Product'}</div>
+                                  <div className="text-xs text-gray-500">{firstProduct?.partsNumber || 'N/A'}</div>
+                                  {extraCount > 0 && (
+                                    <div className="mt-1 text-xs text-gray-500">+{extraCount} more</div>
+                                  )}
                                 </div>
-                                <div className="text-xs text-gray-500">
-                                  {sale.productId && typeof sale.productId === 'object' && sale.productId !== null 
-                                    ? sale.productId.partsNumber 
-                                    : 'N/A'}
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              {productsArr.length === 0 ? (
+                                <span className="text-sm text-gray-900">Unknown Location</span>
+                              ) : (
+                                <div>
+                                  <div className="text-sm text-gray-900">{firstLocation?.name || 'Unknown Location'}</div>
+                                  {extraCount > 0 && (
+                                    <div className="mt-1 text-xs text-gray-500">+{extraCount} more</div>
+                                  )}
                                 </div>
-                              </div>
+                              )}
                             </td>
                             <td className="px-6 py-4">
-                              <span className="text-sm text-gray-900">
-                                {sale.locationId && typeof sale.locationId === 'object' && sale.locationId !== null 
-                                  ? sale.locationId.name 
-                                  : 'Unknown Location'}
-                              </span>
+                              <div className="text-sm text-gray-900 font-medium">{totalQuantity}</div>
+                              {productsArr.length > 0 && (
+                                <div className="text-xs text-gray-500">{productsArr.length} line item{productsArr.length === 1 ? '' : 's'}</div>
+                              )}
                             </td>
                             <td className="px-6 py-4">
-                              <span className="text-sm text-gray-900">{sale.quantity}</span>
+                              {productsArr.length === 0 ? (
+                                <span className="text-sm text-gray-500">—</span>
+                              ) : (
+                                <div>
+                                  <div className="text-sm text-gray-900">{getCurrencySymbol()}{firstUnitPrice.toLocaleString()}</div>
+                                  {extraCount > 0 && (
+                                    <div className="mt-1 text-xs text-gray-500">+{extraCount} more</div>
+                                  )}
+                                </div>
+                              )}
                             </td>
                             <td className="px-6 py-4">
-                              <span className="text-sm text-gray-900">{getCurrencySymbol()}{sale.price.toLocaleString()}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-sm font-semibold text-green-600">
-                                {getCurrencySymbol()}{(sale.quantity * sale.price).toLocaleString()}
-                              </span>
+                              <span className="text-sm font-semibold text-green-600">{getCurrencySymbol()}{totalAmount.toLocaleString()}</span>
                             </td>
                             <td className="px-6 py-4">
                               <span className="text-sm text-gray-500">
@@ -826,7 +787,10 @@ const Sell = () => {
                             </td>
                             <td className="px-6 py-4 text-center">
                               <button
-                                onClick={() => setSelectedSale(sale)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedSale(sale);
+                                }}
                                 className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                               >
                                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -837,7 +801,8 @@ const Sell = () => {
                               </button>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -930,51 +895,35 @@ const Sell = () => {
 
               {/* Content */}
               <div className="p-6 space-y-6">
-                {/* Product Info */}
+                {/* Products in Sale */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Product Information</h3>
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">Products</h3>
                   <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Description:</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {selectedSale.productId && typeof selectedSale.productId === 'object' && selectedSale.productId !== null
-                          ? selectedSale.productId.description 
-                          : 'Unknown Product'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Parts Number:</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {selectedSale.productId && typeof selectedSale.productId === 'object' && selectedSale.productId !== null
-                          ? selectedSale.productId.partsNumber 
-                          : 'N/A'}
-                      </span>
-                    </div>
+                    {(Array.isArray(selectedSale.products) ? selectedSale.products : []).map((p: any, i: number) => (
+                      <div key={i} className="grid grid-cols-3 gap-4 items-center">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{p?.productId && typeof p.productId === 'object' ? p.productId.description : 'Unknown Product'}</div>
+                          <div className="text-xs text-gray-500">{p?.productId && typeof p.productId === 'object' ? p.productId.partsNumber : 'N/A'}</div>
+                        </div>
+                        <div className="text-sm text-gray-700">{p?.locationId && typeof p.locationId === 'object' ? p.locationId.name : 'Unknown Location'}</div>
+                        <div className="text-sm font-medium text-gray-900">{p?.quantity ?? 0} × {getCurrencySymbol()}{(typeof p?.unitPrice === 'number' ? p.unitPrice : parseFloat(p?.unitPrice) || 0).toLocaleString()}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Sale Details */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <div className="text-xs font-medium text-blue-600 uppercase mb-1">Location</div>
+                {/* Sale Totals */}
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4 col-span-1">
+                    <div className="text-xs font-medium text-blue-600 uppercase mb-1">Total Quantity</div>
                     <div className="text-sm font-semibold text-blue-900">
-                      {selectedSale.locationId && typeof selectedSale.locationId === 'object' && selectedSale.locationId !== null
-                        ? selectedSale.locationId.name 
-                        : 'Unknown Location'}
+                      {(Array.isArray(selectedSale.products) ? selectedSale.products : []).reduce((s: number, p: any) => s + (p?.quantity || 0), 0)} units
                     </div>
                   </div>
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <div className="text-xs font-medium text-green-600 uppercase mb-1">Quantity</div>
-                    <div className="text-sm font-semibold text-green-900">{selectedSale.quantity} units</div>
-                  </div>
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <div className="text-xs font-medium text-blue-600 uppercase mb-1">Price per Unit</div>
-                    <div className="text-sm font-semibold text-blue-900">{getCurrencySymbol()}{selectedSale.price.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-yellow-50 rounded-lg p-4">
+                  <div className="bg-yellow-50 rounded-lg p-4 col-span-3">
                     <div className="text-xs font-medium text-yellow-600 uppercase mb-1">Total Amount</div>
                     <div className="text-lg font-bold text-yellow-900">
-                      {getCurrencySymbol()}{(selectedSale.quantity * selectedSale.price).toLocaleString()}
+                      {getCurrencySymbol()}{((Array.isArray(selectedSale.products) ? selectedSale.products : []).reduce((s: number, p: any) => s + ((p?.quantity || 0) * (typeof p?.unitPrice === 'number' ? p.unitPrice : parseFloat(p?.unitPrice) || 0)), 0)).toLocaleString()}
                     </div>
                   </div>
                 </div>

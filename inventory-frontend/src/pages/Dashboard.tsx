@@ -190,9 +190,10 @@ const Dashboard = () => {
 
   const getProductsByLocation = (locationId: string): number => {
     return products.filter(product => {
-      const location = product.locations.find(
-        loc => loc.locationId._id === locationId && loc.quantity > 0
-      );
+      const location = product.locations.find(loc => {
+        const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+        return lid === locationId && loc.quantity > 0;
+      });
       return location !== undefined;
     }).length;
   };

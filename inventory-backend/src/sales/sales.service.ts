@@ -17,79 +17,88 @@ export class SalesService {
   ) {}
 
   async create(createSaleDto: CreateSaleDto, userId: string): Promise<Sale> {
-    const { productId, locationId, quantity, price, notes } = createSaleDto;
-
-    // Get the product to check availability (without populating locations to get raw ObjectIds)
-    const product = await this.productsService.findById(productId);
-    if (!product) {
-      throw new NotFoundException('Product not found');
+    const { products, notes } = createSaleDto;
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      throw new BadRequestException('At least one product is required for a sale.');
     }
 
-    // Normalize locationId for comparison
-    const locationObjectId = new Types.ObjectId(locationId);
-    const locationIdString = locationId.toString();
-
-    // Check if product has stock at the specified location
-    // Note: locationId might be populated (object with _id) or ObjectId
-    const locationIndex = product.locations.findIndex(
-      loc => {
+    // Validate all products and update stock
+    for (const item of products) {
+      const { productId, locationId, quantity } = item;
+      const product = await this.productsService.findById(productId);
+      if (!product) {
+        throw new NotFoundException(`Product not found: ${productId}`);
+      }
+      const locationObjectId = new Types.ObjectId(locationId);
+      const locationIdString = locationId.toString();
+      const locationIndex = product.locations.findIndex(loc => {
         let locId: string;
-        
         if (loc.locationId instanceof Types.ObjectId) {
           locId = loc.locationId.toString();
         } else if (loc.locationId && typeof loc.locationId === 'object') {
-          // Populated locationId object (has _id property)
           locId = (loc.locationId as any)._id?.toString() || '';
         } else {
           locId = String(loc.locationId || '');
         }
-        
         return locId === locationIdString || locId === locationObjectId.toString();
+      });
+      if (locationIndex === -1) {
+        throw new BadRequestException(
+          `Product "${product.description}" (#${product.partsNumber}) is not available at the selected location. ` +
+          `Please select a location where this product has stock.`
+        );
       }
-    );
+      if (product.locations[locationIndex].quantity < quantity) {
+        throw new BadRequestException(`Insufficient stock for product ${product.description}. Available: ${product.locations[locationIndex].quantity}`);
+      }
+    }
 
-    if (locationIndex === -1) {
-      throw new BadRequestException(
-        `Product "${product.description}" (#${product.partsNumber}) is not available at the selected location. ` +
-        `Please select a location where this product has stock.`
+    // Deduct stock and create movement for each product
+    for (const item of products) {
+      const { productId, locationId, quantity, unitPrice } = item;
+      const product = await this.productsService.findById(productId);
+      if (!product) continue; // Should not happen due to previous validation
+      const locationIndex = product.locations.findIndex(loc => {
+        let locId: string;
+        if (loc.locationId instanceof Types.ObjectId) {
+          locId = loc.locationId.toString();
+        } else if (loc.locationId && typeof loc.locationId === 'object') {
+          locId = (loc.locationId as any)._id?.toString() || '';
+        } else {
+          locId = String(loc.locationId || '');
+        }
+        return locId === locationId.toString();
+      });
+      if (locationIndex === -1) continue;
+      await this.productsService.updateQuantityAtLocation(
+        productId,
+        locationId,
+        product.locations[locationIndex].quantity - quantity
       );
+      await this.movementsService.createMovement({
+        productId: productId,
+        fromLocationId: locationId,
+        quantity,
+        unitPrice,
+        movedBy: userId,
+        movementType: MovementType.EXPORT,
+        notes: `Sold ${quantity} units at $${unitPrice.toFixed(2)} per unit${notes ? `. Notes: ${notes}` : ''}`,
+      });
     }
 
-    if (product.locations[locationIndex].quantity < quantity) {
-      throw new BadRequestException(`Insufficient stock. Available: ${product.locations[locationIndex].quantity}`);
-    }
-
-    // Create the sale
+    // Create the sale document
     const sale = new this.saleModel({
-      productId: new Types.ObjectId(productId),
-      locationId: new Types.ObjectId(locationId),
-      quantity,
-      price,
+      products: products.map(item => ({
+        productId: new Types.ObjectId(item.productId),
+        locationId: new Types.ObjectId(item.locationId),
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
       soldBy: new Types.ObjectId(userId),
       soldAt: new Date(),
       notes: notes || '',
     });
-
     const savedSale = await sale.save();
-
-    // Update product quantity (subtract sold quantity)
-    await this.productsService.updateQuantityAtLocation(
-      productId,
-      locationId,
-      product.locations[locationIndex].quantity - quantity
-    );
-
-    // Create movement record for audit trail
-    await this.movementsService.createMovement({
-      productId: productId,
-      fromLocationId: locationId,
-      quantity,
-      unitPrice: product.unitPrice,
-      movedBy: userId,
-      movementType: MovementType.EXPORT,
-      notes: `Sold ${quantity} units at $${price.toFixed(2)} per unit${notes ? `. Notes: ${notes}` : ''}`,
-    });
-
     return savedSale;
   }
 
@@ -117,8 +126,8 @@ export class SalesService {
     // Get all sales first (for search filtering)
     let salesQuery = this.saleModel
       .find(query)
-      .populate('productId', 'description partsNumber')
-      .populate('locationId', 'name')
+      .populate('products.productId', 'description partsNumber')
+      .populate('products.locationId', 'name')
       .populate('soldBy', 'name email')
       .sort({ soldAt: -1 });
 
@@ -128,11 +137,16 @@ export class SalesService {
     if (paginationDto?.search) {
       const searchLower = paginationDto.search.toLowerCase();
       allSales = allSales.filter(sale => {
-        const product = sale.productId as any;
-        if (product) {
-          const description = (product.description || '').toLowerCase();
-          const partsNumber = (product.partsNumber || '').toLowerCase();
-          return description.includes(searchLower) || partsNumber.includes(searchLower);
+        // Search in all products in the sale
+        if (Array.isArray(sale.products)) {
+          return sale.products.some((item: any) => {
+            if (item.productId && typeof item.productId === 'object') {
+              const description = (item.productId.description || '').toLowerCase();
+              const partsNumber = (item.productId.partsNumber || '').toLowerCase();
+              return description.includes(searchLower) || partsNumber.includes(searchLower);
+            }
+            return false;
+          });
         }
         return false;
       });
@@ -155,18 +169,19 @@ export class SalesService {
 
   async findById(id: string): Promise<Sale | null> {
     return this.saleModel.findById(id)
-      .populate('productId', 'description partsNumber')
-      .populate('locationId', 'name')
+      .populate('products.productId', 'description partsNumber')
+      .populate('products.locationId', 'name')
       .populate('soldBy', 'name email')
       .exec();
   }
 
   async getSalesByLocation(locationId: string): Promise<Sale[]> {
+    // Find sales where any product in products array has the given locationId
     return this.saleModel.find({
-      locationId: new Types.ObjectId(locationId)
+      'products.locationId': new Types.ObjectId(locationId)
     })
-      .populate('productId', 'description partsNumber')
-      .populate('locationId', 'name')
+      .populate('products.productId', 'description partsNumber')
+      .populate('products.locationId', 'name')
       .populate('soldBy', 'name email')
       .sort({ soldAt: -1 })
       .exec();
@@ -191,15 +206,15 @@ export class SalesService {
     // Get all sales in the date range
     const sales = await this.saleModel.find(query).exec();
 
-    // Calculate total sales (price * quantity)
-    const totalSales = sales.reduce((sum, sale) => {
-      return sum + (sale.price * sale.quantity);
-    }, 0);
-
-    // Calculate total quantity sold
-    const totalQuantity = sales.reduce((sum, sale) => {
-      return sum + sale.quantity;
-    }, 0);
+    // Calculate total sales and quantity (sum over all products in each sale)
+    let totalSales = 0;
+    let totalQuantity = 0;
+    for (const sale of sales) {
+      for (const item of sale.products) {
+        totalSales += (item.unitPrice * item.quantity);
+        totalQuantity += item.quantity;
+      }
+    }
 
     // Calculate sales for today
     const today = new Date();
@@ -214,9 +229,12 @@ export class SalesService {
       },
     }).exec();
 
-    const salesToday = salesTodayList.reduce((sum, sale) => {
-      return sum + (sale.price * sale.quantity);
-    }, 0);
+    let salesToday = 0;
+    for (const sale of salesTodayList) {
+      for (const item of sale.products) {
+        salesToday += (item.unitPrice * item.quantity);
+      }
+    }
 
     return {
       totalSales: Math.round(totalSales * 100) / 100, // Round to 2 decimal places

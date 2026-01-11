@@ -104,7 +104,10 @@ const Inventory = () => {
   };
 
   const getQuantityAtLocation = (product: Product, locationId: string): number => {
-    const location = product.locations.find(loc => loc.locationId._id === locationId);
+    const location = product.locations.find((loc) => {
+      const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+      return lid === locationId;
+    });
     return location ? location.quantity : 0;
   };
 
@@ -119,9 +122,10 @@ const Inventory = () => {
 
   const getProductsByLocation = (locationId: string): number => {
     return products.filter(product => {
-      const location = product.locations.find(
-        loc => loc.locationId._id === locationId && loc.quantity > 0
-      );
+      const location = product.locations.find((loc) => {
+        const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+        return lid === locationId && loc.quantity > 0;
+      });
       return location !== undefined;
     }).length;
   };
@@ -409,13 +413,22 @@ const Inventory = () => {
                           </span>
                         </div>
                       )}
-                      {product.sellingPrice && (
-                        <div className="mt-1">
-                          <span className="text-sm font-medium text-green-600">
-                            Selling: {getCurrencySymbol()}{product.sellingPrice.toLocaleString()}
-                          </span>
-                        </div>
-                      )}
+                      <div className="mt-1 space-y-0.5">
+                        {typeof product.unitPrice === 'number' && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">
+                              Cost: {getCurrencySymbol()}{product.unitPrice.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {typeof product.sellingPrice === 'number' && (
+                          <div>
+                            <span className="text-sm font-medium text-green-600">
+                              Selling: {getCurrencySymbol()}{product.sellingPrice.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex space-x-1 ml-2">
                       <button
@@ -474,7 +487,7 @@ const Inventory = () => {
                         Import Location
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Selling Price
+                        Prices
                       </th>
                       {locations.map((location) => (
                         <th key={location._id} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -527,13 +540,22 @@ const Inventory = () => {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          {product.sellingPrice ? (
-                            <span className="text-sm font-medium text-green-600">
-                              {getCurrencySymbol()}{product.sellingPrice.toLocaleString()}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-gray-400">-</span>
-                          )}
+                          <div className="space-y-0.5">
+                            {typeof product.unitPrice === 'number' ? (
+                              <div className="text-sm font-medium text-gray-700">
+                                Cost: {getCurrencySymbol()}{product.unitPrice.toLocaleString()}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-400">Cost: -</div>
+                            )}
+                            {typeof product.sellingPrice === 'number' ? (
+                              <div className="text-sm font-medium text-green-600">
+                                Selling: {getCurrencySymbol()}{product.sellingPrice.toLocaleString()}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-400">Selling: -</div>
+                            )}
+                          </div>
                         </td>
                         {locations.map((location) => (
                           <td key={location._id} className="px-6 py-4 text-center">

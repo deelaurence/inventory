@@ -26,7 +26,10 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
 
   useEffect(() => {
     if (product && formData.fromLocation) {
-      const location = product.locations.find(loc => loc.locationId._id === formData.fromLocation);
+      const location = product.locations.find((loc) => {
+        const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+        return lid === formData.fromLocation;
+      });
       if (location) {
         setAvailableQuantity(location.quantity);
       } else {
@@ -135,7 +138,8 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
                 options={product.locations
                   .filter(loc => loc.quantity > 0)
                   .map(location => {
-                    const locationName = locations.find(l => l._id === location.locationId._id)?.name || 'Unknown';
+                    const lid = location.locationId && typeof location.locationId === 'object' ? location.locationId._id : location.locationId;
+                    const locationName = locations.find(l => l._id === lid)?.name || 'Unknown';
                     return {
                       ...location,
                       displayName: locationName,
@@ -144,7 +148,7 @@ const TransferProductModal = ({ isOpen, onClose, onSuccess, product, locations }
                 value={formData.fromLocation}
                 onChange={(value: string) => setFormData(prev => ({ ...prev, fromLocation: value }))}
                 getOptionLabel={(location: { locationId: { _id: string }; displayName: string; quantity: number }) => `${location.displayName} (${location.quantity} available)`}
-                getOptionValue={(location: { locationId: { _id: string }; displayName: string; quantity: number }) => location.locationId._id}
+                getOptionValue={(location: { locationId: { _id: string } | string; displayName: string; quantity: number }) => (typeof location.locationId === 'object' && location.locationId ? location.locationId._id : location.locationId as string)}
                 placeholder="Select source location"
                 limit={50}
               />

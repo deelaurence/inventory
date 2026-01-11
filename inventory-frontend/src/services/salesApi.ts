@@ -1,34 +1,32 @@
 import { api } from '../lib/axios';
 
-export interface Sale {
-  _id: string;
-  productId: {
-    _id: string;
-    description: string;
-    partsNumber: string;
-  };
-  locationId: {
-    _id: string;
-    name: string;
-  };
+export interface SaleProduct {
+  productId: { _id: string; description: string; partsNumber?: string } | string;
+  locationId: { _id: string; name: string } | string;
   quantity: number;
-  price: number;
-  soldBy: {
-    _id: string;
-    name: string;
-    email: string;
-  };
-  soldAt: string;
-  notes: string;
-  createdAt: string;
-  updatedAt: string;
+  unitPrice: number;
 }
 
-export interface CreateSaleDto {
+export interface Sale {
+  _id: string;
+  products: SaleProduct[];
+  soldBy: { _id: string; name?: string; email?: string } | string;
+  soldAt: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
+export interface SaleProductDto {
   productId: string;
   locationId: string;
   quantity: number;
-  price: number;
+  unitPrice: number;
+}
+
+export interface CreateSaleDto {
+  products: SaleProductDto[];
   notes?: string;
 }
 
