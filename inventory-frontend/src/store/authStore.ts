@@ -13,6 +13,7 @@ interface AuthState {
   login: (user: User, token: string) => void;
   logout: () => void;
   initializeAuth: () => void;
+  updateUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -70,5 +71,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         isInitialized: state.isInitialized
       });
     }
+  },
+
+  updateUser: (user: User) => {
+    console.log('[AuthStore] updateUser() called with user:', user);
+    localStorage.setItem('user', JSON.stringify(user));
+    set({ user });
   },
 }));

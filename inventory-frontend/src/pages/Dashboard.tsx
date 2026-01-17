@@ -174,10 +174,10 @@ const Dashboard = () => {
   };
 
   const getLowStockItems = () => {
-    // Count products with total quantity < 10
+    // Count products with total quantity >= 0 and < 10 (includes zero stock and items with 10+ quantity)
     return products.filter(product => {
-      const totalQuantity = product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
-      return totalQuantity > 0 && totalQuantity < 10;
+      const totalQuantity = Math.max(0, product.locations.reduce((sum, loc) => sum + loc.quantity, 0));
+      return totalQuantity >= 0 && totalQuantity < 10;
     }).length;
   };
 

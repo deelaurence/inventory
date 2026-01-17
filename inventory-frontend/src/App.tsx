@@ -8,6 +8,7 @@ import Sell from './pages/Sell';
 import Inventory from './pages/Inventory';
 import MovementHistory from './pages/MovementHistory';
 import ImportLocations from './pages/ImportLocations';
+import Settings from './pages/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
           <Route path="inventory" element={<Inventory />} />
           <Route path="movements" element={<MovementHistory />} />
           <Route path="import-locations" element={<ImportLocations />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
         <Route 
           path="/" 
