@@ -33,6 +33,16 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedImportLocation, setSelectedImportLocation] = useState('');
 
+  // Helper to generate a random system parts number (SYS-XXXXX)
+  const generateSystemPartsNumber = () => {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let randomPart = '';
+    for (let i = 0; i < 5; i++) {
+        randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `SYS-${randomPart}`;
+  };
+
   // Form for adding new product to bulk list
   const [newProductForm, setNewProductForm] = useState({
     description: '',
@@ -122,14 +132,20 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
   };
 
   const handleAddNewProduct = () => {
-    if (!newProductForm.description || !newProductForm.partsNumber || !newProductForm.quantity || !newProductForm.unitPrice) {
-      setError('Please fill in all required fields (Description, Parts Number, Quantity, Cost Price)');
+    if (!newProductForm.description || !newProductForm.quantity || !newProductForm.unitPrice) {
+      setError('Please fill in all required fields (Description, Quantity, Cost Price)');
       setTimeout(() => setError(''), 3000);
       return;
     }
 
+    // Auto-generate parts number if not provided
+    let partsNumber = newProductForm.partsNumber.trim();
+    if (!partsNumber) {
+      partsNumber = generateSystemPartsNumber();
+    }
+
     // Check if parts number already exists in list
-    if (products.some(p => p.partsNumber === newProductForm.partsNumber)) {
+    if (products.some(p => p.partsNumber === partsNumber)) {
       setError('This parts number is already in the list');
       setTimeout(() => setError(''), 3000);
       return;
@@ -138,7 +154,7 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
     const newItem: BulkProductItem = {
       id: `new-${Date.now()}`,
       description: newProductForm.description,
-      partsNumber: newProductForm.partsNumber,
+      partsNumber: partsNumber,
       quantity: newProductForm.quantity,
       unitPrice: newProductForm.unitPrice,
       sellingPrice: newProductForm.sellingPrice,
@@ -362,13 +378,13 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Parts Number *</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Parts Number (Optional)</label>
                       <input
                         type="text"
                         value={newProductForm.partsNumber}
                         onChange={(e) => setNewProductForm({...newProductForm, partsNumber: e.target.value})}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Parts number"
+                        placeholder="Leave empty to auto-generate"
                       />
                     </div>
                     <div>

@@ -30,6 +30,16 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
   const [existingProducts, setExistingProducts] = useState<Product[]>([]);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
 
+  // Helper to generate a random system parts number (SYS-XXXXX)
+  const generateSystemPartsNumber = () => {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let randomPart = '';
+    for (let i = 0; i < 5; i++) {
+        randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `SYS-${randomPart}`;
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchImportLocations();
@@ -173,15 +183,15 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
           return;
         }
 
-        if (!formData.partsNumber || formData.partsNumber.trim() === '') {
-          setError('Parts number is required');
-          setLoading(false);
-          return;
+        // Auto-generate parts number if not provided
+        let partsNumber = formData.partsNumber.trim();
+        if (!partsNumber) {
+          partsNumber = generateSystemPartsNumber();
         }
 
         const createData: any = {
           description: formData.description.trim(),
-          partsNumber: formData.partsNumber.trim(),
+          partsNumber: partsNumber,
           quantity: quantity,
           unitPrice: unitPrice,
           locationId: formData.importLocation.trim()
@@ -328,9 +338,11 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
 
             <div>
               <label htmlFor="partsNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                Parts Number *
-                {isEditingExisting && (
+                Parts Number / ID
+                {isEditingExisting ? (
                   <span className="ml-2 text-xs text-gray-500 font-normal">(Read-only)</span>
+                ) : (
+                  <span className="ml-2 text-xs text-blue-500 font-normal">(Optional - will auto-generate if empty)</span>
                 )}
               </label>
               <input
@@ -339,12 +351,12 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 name="partsNumber"
                 value={formData.partsNumber}
                 onChange={handleChange}
-                required
+                required={false}
                 readOnly={isEditingExisting}
                 className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
                   isEditingExisting ? 'bg-gray-50 text-gray-900 cursor-not-allowed border-gray-200' : ''
                 }`}
-                placeholder="Enter parts number"
+                placeholder={isEditingExisting ? "" : "Leave empty for auto-generation"}
               />
             </div>
 

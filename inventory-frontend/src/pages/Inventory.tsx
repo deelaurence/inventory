@@ -112,13 +112,12 @@ const Inventory = () => {
   };
 
   const getTotalQuantity = (product: Product): number => {
-    return Math.max(0, product.locations.reduce((sum, loc) => sum + loc.quantity, 0));
+    return product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
   };
 
   const isLowStock = (product: Product): boolean => {
-    // Returns true if total quantity >= 0 and < 10 (includes zero stock and items with 10+ quantity)
     const totalQuantity = getTotalQuantity(product);
-    return totalQuantity >= 0 && totalQuantity < 10;
+    return totalQuantity > 0 && totalQuantity < 10;
   };
 
   const getProductsByLocation = (locationId: string): number => {
