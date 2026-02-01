@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { UsersService } from './users/users.service';
 import { LocationsService } from './locations/locations.service';
 import { ImportLocationsService } from './import-locations/import-locations.service';
+import { UserType } from './users/schemas/user.schema';
 import * as bcrypt from 'bcrypt';
 
 async function bootstrap() {
@@ -71,10 +72,15 @@ async function bootstrap() {
     for (const user of users) {
       const existingUser = await usersService.findByEmail(user.email);
       if (!existingUser) {
-        await usersService.create(user.name, user.email, user.password);
-        console.log(`Created user: ${user.name} (${user.email})`);
+        await usersService.create(user.name, user.email, user.password, UserType.ADMIN);
+        console.log(`Created admin user: ${user.name} (${user.email})`);
       }
     }
+
+    // Make all existing users admin (migration)
+    console.log('Making all existing users admin...');
+    const migratedCount = await usersService.makeAllUsersAdmin();
+    console.log(`${migratedCount} users updated to admin.`);
 
     console.log('Database seeding completed successfully!');
   } catch (error) {

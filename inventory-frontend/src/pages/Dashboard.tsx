@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { productsApi, type Product, type LocationStats } from '../services/productsApi';
+import { productsApi, type LocationStats, type ProductStats } from '../services/productsApi';
 import { movementsApi, type Movement } from '../services/movementsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
 import { salesApi, type SalesStats } from '../services/salesApi';
@@ -9,10 +9,10 @@ import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 const Dashboard = () => {
   const { user } = useAuthStore();
-  const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [locationStats, setLocationStats] = useState<LocationStats[]>([]);
+  const [productStats, setProductStats] = useState<ProductStats | null>(null);
   const [salesStats, setSalesStats] = useState<SalesStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [movementsLoading, setMovementsLoading] = useState(true);
@@ -105,13 +105,10 @@ const Dashboard = () => {
       const token = localStorage.getItem('token');
       console.log('[Dashboard] Token before API calls:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
       
-      console.log('[Dashboard] Calling productsApi.fetchProducts()');
-      const productsResponse = await productsApi.fetchProducts({
-        page: 1,
-        limit: 50,
-      });
-      console.log('[Dashboard] Products fetched successfully, count:', productsResponse.data.length);
-      
+      console.log('[Dashboard] Calling productsApi.getStats()');
+      const statsResponse = await productsApi.getStats();
+      console.log('[Dashboard] Stats fetched successfully:', statsResponse);
+
       console.log('[Dashboard] Calling movementsApi.fetchMovements()');
       const movementsResponse = await movementsApi.fetchMovements({
         page: 1,
@@ -127,7 +124,7 @@ const Dashboard = () => {
       const locationStatsData = await productsApi.getProductsByLocationStats();
       console.log('[Dashboard] Location stats fetched successfully, count:', locationStatsData.length);
       
-      setProducts(productsResponse.data);
+      setProductStats(statsResponse);
       setMovements(movementsResponse.data); // Get latest 5 movements
       setLocations(locationsData);
       setLocationStats(locationStatsData);
@@ -158,44 +155,6 @@ const Dashboard = () => {
       setSalesFilter('custom');
       fetchSalesData('custom', customStartDate, customEndDate);
     }
-  };
-
-  const getTotalItems = () => {
-    // Count unique products
-    return products.length;
-  };
-
-  const getInStockItems = () => {
-    // Count products that have stock > 0
-    return products.filter(product => {
-      const totalQuantity = product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
-      return totalQuantity > 0;
-    }).length;
-  };
-
-  const getLowStockItems = () => {
-    // Count products with total quantity >= 0 and < 10 (includes zero stock and items with 10+ quantity)
-    return products.filter(product => {
-      const totalQuantity = Math.max(0, product.locations.reduce((sum, loc) => sum + loc.quantity, 0));
-      return totalQuantity >= 0 && totalQuantity < 10;
-    }).length;
-  };
-
-  const getTotalValue = () => {
-    return products.reduce((total, product) => {
-      const totalQuantity = product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
-      return total + (totalQuantity * product.unitPrice);
-    }, 0);
-  };
-
-  const getProductsByLocation = (locationId: string): number => {
-    return products.filter(product => {
-      const location = product.locations.find(loc => {
-        const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
-        return lid === locationId && loc.quantity > 0;
-      });
-      return location !== undefined;
-    }).length;
   };
 
   const getMovementIcon = (type: string) => {
@@ -255,7 +214,7 @@ const Dashboard = () => {
   const stats = [
     {
       name: 'Total Products',
-      value: loading ? '...' : getTotalItems().toLocaleString(),
+      value: loading || !productStats ? '...' : productStats.totalProducts.toLocaleString(),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -270,7 +229,7 @@ const Dashboard = () => {
     },
     {
       name: 'In Stock',
-      value: loading ? '...' : getInStockItems().toLocaleString(),
+      value: loading || !productStats ? '...' : productStats.inStock.toLocaleString(),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -285,7 +244,7 @@ const Dashboard = () => {
     },
     {
       name: 'Low Stock',
-      value: loading ? '...' : getLowStockItems().toLocaleString(),
+      value: loading || !productStats ? '...' : productStats.lowStock.toLocaleString(),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -299,18 +258,33 @@ const Dashboard = () => {
       href: '/dashboard/inventory?filter=lowstock'
     },
     {
-      name: 'Total Value',
-      value: loading ? '...' : formatCurrency(getTotalValue()),
+      name: 'Cost Value',
+      value: loading || !productStats ? '...' : formatCurrency(productStats.totalCostValue),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
         </svg>
       ),
-      gradient: 'from-blue-800 via-pink-500 to-rose-500',
-      bgGradient: 'from-blue-50 via-pink-100/50 to-rose-50',
-      iconBg: 'bg-gradient-to-br from-blue-400 to-pink-500',
-      textColor: 'text-blue-800',
-      borderColor: 'border-blue-200',
+      gradient: 'from-rose-500 via-red-500 to-orange-500',
+      bgGradient: 'from-rose-50 via-red-100/50 to-orange-50',
+      iconBg: 'bg-gradient-to-br from-rose-400 to-orange-500',
+      textColor: 'text-rose-700',
+      borderColor: 'border-rose-200',
+      href: '/dashboard/inventory'
+    },
+    {
+      name: 'Selling Value',
+      value: loading || !productStats ? '...' : formatCurrency(productStats.totalSellingValue),
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      gradient: 'from-green-500 via-emerald-500 to-teal-500',
+      bgGradient: 'from-green-50 via-emerald-100/50 to-teal-50',
+      iconBg: 'bg-gradient-to-br from-green-400 to-teal-500',
+      textColor: 'text-green-700',
+      borderColor: 'border-green-200',
       href: '/dashboard/inventory'
     },
     {
@@ -402,8 +376,8 @@ const Dashboard = () => {
       {/* Content */}
       <div className="px-4 sm:px-6 lg:px-8 py-6 bg-gradient-to-br from-gray-50 via-blue-50/30 to-blue-50/30 min-h-screen">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          {stats.slice(0, 4).map((stat, index) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+          {stats.slice(0, 5).map((stat, index) => (
             <a key={index} href={stat.href} className={`block bg-gradient-to-br ${stat.bgGradient} rounded-2xl border-2 ${stat.borderColor} p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer`}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -527,10 +501,10 @@ const Dashboard = () => {
                   { gradient: 'from-sky-500 via-blue-500 to-indigo-500', bgGradient: 'from-sky-50 via-blue-100/50 to-indigo-50', iconBg: 'bg-gradient-to-br from-sky-400 to-indigo-500', textColor: 'text-sky-700', borderColor: 'border-sky-200' },
                 ];
                 const locationStyle = locationGradients[index % locationGradients.length];
-                const productCount = loading ? '...' : getProductsByLocation(location._id).toLocaleString();
-                
-                // Get total quantity for this location from locationStats
+
+                // Get stats for this location from locationStats
                 const locationStat = locationStats.find(stat => stat.locationName === location.name);
+                const productCount = loading ? '...' : (locationStat?.productCount || 0).toLocaleString();
                 const totalQuantity = loading ? '...' : (locationStat?.totalQuantity || 0).toLocaleString();
                 
                 return (

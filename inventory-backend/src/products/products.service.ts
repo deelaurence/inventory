@@ -420,28 +420,74 @@ export class ProductsService {
     return updatedProduct;
   }
 
-  async getProductsByLocationStats(): Promise<Array<{ locationId: string; locationName: string; totalQuantity: number }>> {
+  async getStats(): Promise<{
+    totalProducts: number;
+    inStock: number;
+    lowStock: number;
+    totalCostValue: number;
+    totalSellingValue: number;
+  }> {
+    const products = await this.productModel.find().exec();
+
+    let totalProducts = products.length;
+    let inStock = 0;
+    let lowStock = 0;
+    let totalCostValue = 0;
+    let totalSellingValue = 0;
+
+    for (const product of products) {
+      const totalQuantity = product.locations.reduce((sum, loc) => sum + loc.quantity, 0);
+
+      if (totalQuantity > 0) {
+        inStock++;
+      }
+
+      if (totalQuantity >= 0 && totalQuantity < 4) {
+        lowStock++;
+      }
+
+      totalCostValue += totalQuantity * product.unitPrice;
+
+      // Use selling price if available, otherwise use cost price
+      const sellingPrice = product.sellingPrice || product.unitPrice;
+      totalSellingValue += totalQuantity * sellingPrice;
+    }
+
+    return {
+      totalProducts,
+      inStock,
+      lowStock,
+      totalCostValue,
+      totalSellingValue,
+    };
+  }
+
+  async getProductsByLocationStats(): Promise<Array<{ locationId: string; locationName: string; totalQuantity: number; productCount: number }>> {
     const products = await this.productModel
       .find()
       .populate('locations.locationId', 'name')
       .exec();
 
-    const locationMap = new Map<string, { locationName: string; totalQuantity: number }>();
+    const locationMap = new Map<string, { locationName: string; totalQuantity: number; productCount: number }>();
 
     for (const product of products) {
       for (const location of product.locations) {
         const locationId = (location.locationId as any)._id?.toString();
         const locationName = (location.locationId as any).name || '';
-        
+
         if (!locationMap.has(locationId)) {
           locationMap.set(locationId, {
             locationName,
             totalQuantity: 0,
+            productCount: 0,
           });
         }
-        
+
         const current = locationMap.get(locationId)!;
         current.totalQuantity += location.quantity;
+        if (location.quantity > 0) {
+          current.productCount += 1;
+        }
       }
     }
 

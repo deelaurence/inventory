@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { productsApi, type Product } from '../services/productsApi';
+import { productsApi, type Product, type LocationStats } from '../services/productsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
 import ImportProductModal from '../components/ImportProductModal';
 import BulkImportModal from '../components/BulkImportModal';
@@ -15,6 +15,7 @@ const Inventory = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [locationStats, setLocationStats] = useState<LocationStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showImportTypeModal, setShowImportTypeModal] = useState(false);
@@ -55,7 +56,7 @@ const Inventory = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [productsResponse, locationsData] = await Promise.all([
+      const [productsResponse, locationsData, locationStatsData] = await Promise.all([
         productsApi.fetchProducts({
           page,
           limit,
@@ -64,12 +65,14 @@ const Inventory = () => {
           endDate: endDate || undefined,
         }),
         locationsApi.fetchLocations(),
+        productsApi.getProductsByLocationStats(),
       ]);
       // Extract data array from paginated response
       setProducts(productsResponse.data);
       setTotal(productsResponse.total);
       setTotalPages(productsResponse.totalPages);
       setLocations(locationsData);
+      setLocationStats(locationStatsData);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch data');
     } finally {
@@ -117,17 +120,7 @@ const Inventory = () => {
 
   const isLowStock = (product: Product): boolean => {
     const totalQuantity = getTotalQuantity(product);
-    return totalQuantity > 0 && totalQuantity < 10;
-  };
-
-  const getProductsByLocation = (locationId: string): number => {
-    return products.filter(product => {
-      const location = product.locations.find((loc) => {
-        const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
-        return lid === locationId && loc.quantity > 0;
-      });
-      return location !== undefined;
-    }).length;
+    return totalQuantity > 0 && totalQuantity < 4;
   };
 
   const handleImportSuccess = () => {
@@ -243,15 +236,17 @@ const Inventory = () => {
                   { gradient: 'from-violet-500 via-purple-500 to-fuchsia-500', bgGradient: 'from-violet-50 via-purple-100/50 to-fuchsia-50', iconBg: 'bg-gradient-to-br from-violet-400 to-fuchsia-500', textColor: 'text-violet-700', borderColor: 'border-violet-200' },
                 ];
                 const locationStyle = locationGradients[index % locationGradients.length];
-                const productCount = loading ? '...' : getProductsByLocation(location._id).toLocaleString();
-                
+                const locationStat = locationStats.find(stat => stat.locationName === location.name);
+                const productCount = loading ? '...' : (locationStat?.productCount || 0).toLocaleString();
+                const totalQuantity = loading ? '...' : (locationStat?.totalQuantity || 0).toLocaleString();
+
                 return (
                   <div key={location._id} className={`bg-gradient-to-br ${locationStyle.bgGradient} rounded-xl border-2 ${locationStyle.borderColor} p-5 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}>
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className={`text-sm font-semibold ${locationStyle.textColor} mb-1`}>{location.name}</p>
                         <p className={`text-2xl font-bold ${locationStyle.textColor} mt-1`}>{productCount}</p>
-                        <p className={`text-xs ${locationStyle.textColor} opacity-70 mt-1`}>products</p>
+                        <p className={`text-xs ${locationStyle.textColor} opacity-70 mt-1`}>products ({totalQuantity} units)</p>
                       </div>
                       <div className={`p-3 rounded-xl ${locationStyle.iconBg} shadow-lg transform rotate-3 hover:rotate-6 transition-transform`}>
                         <div className="text-white">

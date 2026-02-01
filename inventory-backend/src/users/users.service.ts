@@ -1,7 +1,7 @@
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
+import { User, UserDocument, UserType, UserStatus } from './schemas/user.schema';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -12,10 +12,51 @@ export class UsersService {
     return this.userModel.findOne({ email }).exec();
   }
 
-  async create(name: string, email: string, password: string): Promise<User> {
+  async create(name: string, email: string, password: string, userType: UserType = UserType.USER): Promise<User> {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new this.userModel({ name, email, password: hashedPassword });
+    const user = new this.userModel({ name, email, password: hashedPassword, userType });
     return user.save();
+  }
+
+  async findAll(): Promise<UserDocument[]> {
+    return this.userModel.find().select('-password').sort({ createdAt: -1 }).exec();
+  }
+
+  async suspendUser(userId: string): Promise<UserDocument> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    user.status = UserStatus.SUSPENDED;
+    return user.save();
+  }
+
+  async unsuspendUser(userId: string): Promise<UserDocument> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    user.status = UserStatus.ACTIVE;
+    return user.save();
+  }
+
+  async updateUserType(userId: string, userType: UserType): Promise<UserDocument> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    user.userType = userType;
+    return user.save();
+  }
+
+  async makeAllUsersAdmin(): Promise<number> {
+    // Update all users to admin and ensure they have active status
+    const result = await this.userModel.updateMany(
+      {},
+      { $set: { userType: UserType.ADMIN, status: UserStatus.ACTIVE } }
+    ).exec();
+
+    return result.modifiedCount;
   }
 
   async validatePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {

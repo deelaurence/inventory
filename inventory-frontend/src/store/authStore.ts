@@ -1,8 +1,12 @@
 import { create } from 'zustand';
 
+export type UserType = 'admin' | 'user';
+
 interface User {
   id: string;
   email: string;
+  name?: string;
+  userType?: UserType;
 }
 
 interface AuthState {
@@ -10,18 +14,24 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isInitialized: boolean;
+  isAdmin: () => boolean;
   login: (user: User, token: string) => void;
   logout: () => void;
   initializeAuth: () => void;
   updateUser: (user: User) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isAuthenticated: false,
   isInitialized: false,
-  
+
+  isAdmin: () => {
+    const { user } = get();
+    return user?.userType === 'admin';
+  },
+
   login: (user: User, token: string) => {
     console.log('[AuthStore] login() called with user:', user, 'token:', token?.substring(0, 20) + '...');
     localStorage.setItem('user', JSON.stringify(user));

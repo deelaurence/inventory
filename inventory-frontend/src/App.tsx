@@ -9,6 +9,7 @@ import Inventory from './pages/Inventory';
 import MovementHistory from './pages/MovementHistory';
 import ImportLocations from './pages/ImportLocations';
 import Settings from './pages/Settings';
+import UserManagement from './pages/UserManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -39,6 +40,7 @@ function App() {
           <Route path="movements" element={<MovementHistory />} />
           <Route path="import-locations" element={<ImportLocations />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="users" element={<UserManagement />} />
         </Route>
         <Route 
           path="/" 

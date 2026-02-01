@@ -79,6 +79,15 @@ export interface LocationStats {
   locationId: string;
   locationName: string;
   totalQuantity: number;
+  productCount: number;
+}
+
+export interface ProductStats {
+  totalProducts: number;
+  inStock: number;
+  lowStock: number;
+  totalCostValue: number;
+  totalSellingValue: number;
 }
 
 export interface PaginationParams {
@@ -136,6 +145,11 @@ export const productsApi = {
 
   getProductsByLocationStats: async (): Promise<LocationStats[]> => {
     const response = await api.get('/products/stats/by-location');
+    return response.data;
+  },
+
+  getStats: async (): Promise<ProductStats> => {
+    const response = await api.get('/products/stats');
     return response.data;
   },
 };

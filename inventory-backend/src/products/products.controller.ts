@@ -25,6 +25,11 @@ export class ProductsController {
     return this.productsService.findAll(paginationDto);
   }
 
+  @Get('stats')
+  async getStats() {
+    return this.productsService.getStats();
+  }
+
   @Get('stats/by-location')
   async getProductsByLocationStats() {
     return this.productsService.getProductsByLocationStats();

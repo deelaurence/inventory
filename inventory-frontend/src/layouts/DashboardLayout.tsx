@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 const DashboardLayout = () => {
-  const { user, logout } = useAuthStore();
+  const { user, logout, isAdmin } = useAuthStore();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -67,6 +67,18 @@ const DashboardLayout = () => {
     }
   ];
 
+  const adminNavigation = [
+    {
+      name: 'User Management',
+      href: '/dashboard/users',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      )
+    }
+  ];
+
   const isCurrentPath = (path: string) => {
     return location.pathname === path;
   };
@@ -96,7 +108,9 @@ const DashboardLayout = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">{user?.email}</p>
-                <p className="text-xs text-blue-300">Administrator</p>
+                <p className={`text-xs ${isAdmin() ? 'text-purple-300' : 'text-blue-300'}`}>
+                  {isAdmin() ? 'Administrator' : 'User'}
+                </p>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -119,7 +133,7 @@ const DashboardLayout = () => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-4 space-y-2">
+          <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
             {navigation.map((item) => (
               <Link
                 key={item.name}
@@ -139,6 +153,34 @@ const DashboardLayout = () => {
                 <span>{item.name}</span>
               </Link>
             ))}
+
+            {/* Admin Navigation */}
+            {isAdmin() && (
+              <>
+                <div className="pt-4 pb-2">
+                  <p className="px-3 text-xs font-semibold text-blue-400 uppercase tracking-wider">Admin</p>
+                </div>
+                {adminNavigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center space-x-3 px-3 py-2 text-sm font-medium transition-colors rounded-lg ${
+                      isCurrentPath(item.href)
+                        ? 'bg-purple-700 text-white border-r-2 border-purple-400 shadow-md'
+                        : 'text-blue-200 hover:bg-purple-800/70 hover:text-white'
+                    }`}
+                  >
+                    <div className={`${
+                      isCurrentPath(item.href) ? 'text-white' : 'text-purple-400'
+                    }`}>
+                      {item.icon}
+                    </div>
+                    <span>{item.name}</span>
+                  </Link>
+                ))}
+              </>
+            )}
           </nav>
         </div>
       </div>
