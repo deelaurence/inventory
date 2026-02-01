@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { usersApi, type User, type UserType, type UserStatus } from '../services/usersApi';
+import { usersApi, type User, type UserType } from '../services/usersApi';
 import { useAuthStore } from '../store/authStore';
 import Loader from '../components/Loader';
 
