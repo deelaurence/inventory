@@ -10,6 +10,12 @@ interface SearchableSelectProps<T> {
   disabled?: boolean;
   className?: string;
   limit?: number;
+  // Optional async search handler. If provided, the component will call this
+  // with the current query and display returned results instead of filtering
+  // the local `options` prop. Useful for server-side searching/pagination.
+  onSearch?: (query: string) => Promise<T[]>;
+  // Called with the full option object when a user selects an option.
+  onSelect?: (option: T) => void;
 }
 
 export default function SearchableSelect<T>({
@@ -21,23 +27,32 @@ export default function SearchableSelect<T>({
   placeholder = 'Select...',
   disabled = false,
   className = '',
-  limit = 50,
+  limit = 100,
+  onSearch,
+  onSelect,
 }: SearchableSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [remoteOptions, setRemoteOptions] = useState<T[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [selectedLabel, setSelectedLabel] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter options based on search term
-  const filteredOptions = options
-    .filter(option => {
+  // Determine the source list: remoteOptions (if onSearch used) or local options
+  const sourceOptions = remoteOptions !== null ? remoteOptions : options;
+  // Filter options based on search term (only applies to local options)
+  const filteredOptions = (remoteOptions !== null
+    ? sourceOptions
+    : sourceOptions.filter(option => {
       const label = getOptionLabel(option).toLowerCase();
       return label.includes(searchTerm.toLowerCase());
     })
-    .slice(0, limit);
+  ).slice(0, limit);
 
-  // Get selected option label
-  const selectedOption = options.find(opt => getOptionValue(opt) === value);
-  const displayValue = selectedOption ? getOptionLabel(selectedOption) : '';
+  // Determine display value: prefer explicit `selectedLabel` (set on select),
+  // otherwise try to find the option in the current source list.
+  const foundInSource = sourceOptions.find(opt => getOptionValue(opt) === value);
+  const displayValue = selectedLabel || (foundInSource ? getOptionLabel(foundInSource) : '');
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -45,6 +60,8 @@ export default function SearchableSelect<T>({
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
         setSearchTerm('');
+        // clear remote results when closing
+        setRemoteOptions(null);
       }
     };
 
@@ -52,11 +69,52 @@ export default function SearchableSelect<T>({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (optionValue: string) => {
+  const handleSelect = (optionValue: string, optionLabel?: string, optionObj?: T) => {
     onChange(optionValue);
+    if (optionLabel) setSelectedLabel(optionLabel);
+    if (onSelect && optionObj) onSelect(optionObj);
     setIsOpen(false);
     setSearchTerm('');
+    setRemoteOptions(null);
   };
+
+  // Keep a synced label for the currently selected value so that selections
+  // coming from remote results (which may not be present in the local
+  // `options` prop) still display correctly after the dropdown closes.
+  useEffect(() => {
+    if (!value) {
+      setSelectedLabel('');
+      return;
+    }
+    const foundLocal = options.find(opt => getOptionValue(opt) === value);
+    const foundRemote = remoteOptions ? remoteOptions.find(opt => getOptionValue(opt) === value) : undefined;
+    const found = foundLocal || foundRemote;
+    if (found) setSelectedLabel(getOptionLabel(found));
+  }, [value, options, remoteOptions, getOptionLabel, getOptionValue]);
+
+  // Debounced async search when `onSearch` is provided
+  useEffect(() => {
+    if (!onSearch) return;
+    let mounted = true;
+    const delay = 1000;
+    const timer = setTimeout(async () => {
+      const q = searchTerm.trim();
+      try {
+        setSearching(true);
+        const res = await onSearch(q);
+        if (mounted) setRemoteOptions(res || []);
+      } catch (e) {
+        if (mounted) setRemoteOptions([]);
+      } finally {
+        if (mounted) setSearching(false);
+      }
+    }, delay);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [searchTerm, onSearch]);
 
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
@@ -96,7 +154,9 @@ export default function SearchableSelect<T>({
             />
           </div>
           <div className="overflow-y-auto max-h-48">
-            {filteredOptions.length === 0 ? (
+            {searching ? (
+              <div className="px-4 py-2 text-sm text-gray-500 text-center">Searching...</div>
+            ) : filteredOptions.length === 0 ? (
               <div className="px-4 py-2 text-sm text-gray-500 text-center">No options found</div>
             ) : (
               filteredOptions.map((option) => {
@@ -107,7 +167,7 @@ export default function SearchableSelect<T>({
                   <button
                     key={optionValue}
                     type="button"
-                    onClick={() => handleSelect(optionValue)}
+                    onClick={() => handleSelect(optionValue, optionLabel, option)}
                     className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 transition-colors ${
                       isSelected ? 'bg-blue-100 text-blue-900 font-medium' : 'text-gray-900'
                     }`}
@@ -117,9 +177,9 @@ export default function SearchableSelect<T>({
                 );
               })
             )}
-            {options.length > limit && (
+            {sourceOptions.length > limit && (
               <div className="px-4 py-2 text-xs text-gray-500 text-center border-t border-gray-200">
-                Showing {filteredOptions.length} of {options.length} options
+                Showing {filteredOptions.length} of {sourceOptions.length} options
               </div>
             )}
           </div>

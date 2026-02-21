@@ -2,7 +2,8 @@ import axios from 'axios';
 
 const API_BASE_URL = window.location.protocol.startsWith('https') 
   ? 'https://inventory.vendium.cloud' 
-  : 'http://localhost:4000';
+  // : 'http://localhost:4000';
+  : 'https://inventory.vendium.cloud';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

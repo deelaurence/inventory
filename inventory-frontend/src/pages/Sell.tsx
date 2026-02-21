@@ -20,12 +20,12 @@ const Sell = () => {
   
   // Pagination states for products
   const [productsPage] = useState(1);
-  const [productsLimit] = useState(50);
+  const [productsLimit] = useState(100);
   const [productsSearch] = useState('');
   
   // Pagination states for sales
   const [salesPage, setSalesPage] = useState(1);
-  const [salesLimit] = useState(50);
+  const [salesLimit] = useState(100);
   const [salesSearch, setSalesSearch] = useState('');
   const [salesSearchInput, setSalesSearchInput] = useState(''); // For immediate UI update
   const [salesStartDate, setSalesStartDate] = useState('');
@@ -55,14 +55,19 @@ const Sell = () => {
   useEffect(() => {
     if (activeTab !== 'sales') return;
 
+    console.log('[Sell] debounce effect start', { salesSearchInput, salesSearch, activeTab });
     const delay = 500; // ms
     const timer = setTimeout(() => {
-      if (salesSearch !== salesSearchInput) {
+      const inputTrim = salesSearchInput.trim();
+      const currentTrim = salesSearch.trim();
+      if (inputTrim !== currentTrim) {
         console.log('[Sell] Debounced search ->', salesSearchInput);
         setSalesSearch(salesSearchInput);
         setSalesPage(1); // Reset to first page on search
         // call API with current input to avoid relying on state update timing
         fetchSales(salesSearchInput);
+      } else {
+        console.log('[Sell] Debounce: trimmed input equals current search, skipping fetch');
       }
     }, delay);
 
@@ -92,6 +97,24 @@ const Sell = () => {
           return {
             ...row,
             selectedProduct: product,
+            availableQuantity: location ? location.quantity : 0,
+            unitPrice: autoPrice
+          };
+        }
+        // If product not found in global list, but the row already holds a selectedProduct
+        // (e.g. chosen from remote search), preserve it and compute availability from it.
+        if (row.selectedProduct && row.selectedProduct._id === row.productId) {
+          const location = row.selectedProduct.locations.find((loc) => {
+            const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+            return lid === row.locationId;
+          });
+          let autoPrice = row.unitPrice;
+          if (row.selectedProduct.sellingPrice !== undefined && row.selectedProduct.sellingPrice !== null && !row.unitPrice) {
+            autoPrice = row.selectedProduct.sellingPrice.toString();
+          }
+          return {
+            ...row,
+            selectedProduct: row.selectedProduct,
             availableQuantity: location ? location.quantity : 0,
             unitPrice: autoPrice
           };
@@ -149,8 +172,9 @@ const Sell = () => {
   };
 
   const handleSalesSearchChange = (value: string) => {
+    console.log('[Sell] handleSalesSearchChange', value);
     setSalesSearchInput(value); // Update input immediately for UI
-    // Search will be triggered after 3 seconds via useEffect
+    // Search will be triggered after short debounce via useEffect
   };
 
   const handleSalesDateFilter = (start: string, end: string) => {
@@ -207,6 +231,13 @@ const Sell = () => {
 
       return { ...row, [field]: value };
     }));
+  };
+
+  // Server-side product search used by SearchableSelect when open
+  const searchProducts = async (q: string) => {
+    // fetch first page with higher limit to present more options
+    const resp = await productsApi.fetchProducts({ page: 1, limit: 100, search: q || undefined });
+    return resp.data;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -372,7 +403,7 @@ const Sell = () => {
 
                   {/* Dynamic product rows */}
                   {productsInSale.map((row, idx) => (
-                    <div key={idx} className="border-b border-gray-200 pb-6 mb-6">
+                    <div key={idx} className="border-b-2 border-gray-500 pb-6 mb-6">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="text-md font-semibold text-gray-800">Product #{idx + 1}</h3>
                         {productsInSale.length > 1 && (
@@ -392,7 +423,7 @@ const Sell = () => {
                             getOptionLabel={location => location.name}
                             getOptionValue={location => location._id}
                             placeholder="Select shop/location..."
-                            limit={50}
+                            limit={20}
                           />
                         </div>
                         {/* Product */}
@@ -408,7 +439,8 @@ const Sell = () => {
                             )}
                             value={row.productId}
                             onChange={value => handleProductRowChange(idx, 'productId', value)}
-                            getOptionLabel={product => {
+                            onSearch={searchProducts}
+                              getOptionLabel={product => {
                               const location = product.locations.find((loc) => {
                                 const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
                                 return lid === row.locationId;
@@ -419,7 +451,24 @@ const Sell = () => {
                             getOptionValue={product => product._id}
                             placeholder="Select a product..."
                             disabled={!row.locationId}
-                            limit={50}
+                            limit={20}
+                              onSelect={(product) => {
+                                const location = product.locations.find((loc) => {
+                                  const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
+                                  return lid === row.locationId;
+                                });
+                                const stock = location ? location.quantity : 0;
+                                setProductsInSale(rows => rows.map((r, i) => {
+                                  if (i !== idx) return r;
+                                  return {
+                                    ...r,
+                                    productId: product._id,
+                                    selectedProduct: product,
+                                    availableQuantity: stock,
+                                    unitPrice: r.unitPrice || (product.sellingPrice !== undefined && product.sellingPrice !== null ? product.sellingPrice.toString() : r.unitPrice)
+                                  };
+                                }));
+                              }}
                           />
                           {!row.locationId && (
                             <p className="mt-1 text-xs text-gray-500">Please select a location first to see available products</p>
@@ -645,6 +694,7 @@ const Sell = () => {
                           type="text"
                           value={salesSearchInput}
                           onChange={(e) => handleSalesSearchChange(e.target.value)}
+                          onInput={(e) => console.log('[Sell] input event', (e.target as HTMLInputElement).value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -657,8 +707,13 @@ const Sell = () => {
                           className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                         {salesSearchInput !== salesSearch && (
-                          <p className="mt-1 text-xs text-gray-500">Searching in 3 seconds...</p>
+                          <p className="mt-1 text-xs text-gray-500">Searching...</p>
                         )}
+                        {/* Debug badge: shows immediate input vs current search state */}
+                        <div className="mt-2 text-xs text-gray-600">
+                          <span className="mr-3">Input: <strong>{salesSearchInput || '—'}</strong></span>
+                          <span>Search: <strong>{salesSearch || '—'}</strong></span>
+                        </div>
                       </div>
                     </div>
 
