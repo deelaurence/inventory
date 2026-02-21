@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { productsApi, type Product } from '../services/productsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
 import { salesApi } from '../services/salesApi';
@@ -124,7 +124,7 @@ const Sell = () => {
 
   // fetchSales accepts an optional search override so callers can force a request
   // with the latest input without waiting for state to settle.
-  const fetchSales = async (searchOverride?: string) => {
+  const fetchSales = async (searchOverride?: string | React.MouseEvent) => {
     try {
       const searchParam = (typeof searchOverride === 'string' ? searchOverride : salesSearch) || undefined;
       console.log('[Sell] fetchSales called', { page: salesPage, limit: salesLimit, search: searchParam, startDate: salesStartDate, endDate: salesEndDate });
