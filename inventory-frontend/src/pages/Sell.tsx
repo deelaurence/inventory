@@ -51,17 +51,23 @@ const Sell = () => {
     fetchData();
   }, []);
 
-  // Debounce sales search - wait 3 seconds after user stops typing
+  // Debounce sales search — trigger API with current input after short delay
   useEffect(() => {
-    if (activeTab === 'sales') {
-      const timer = setTimeout(() => {
+    if (activeTab !== 'sales') return;
+
+    const delay = 500; // ms
+    const timer = setTimeout(() => {
+      if (salesSearch !== salesSearchInput) {
+        console.log('[Sell] Debounced search ->', salesSearchInput);
         setSalesSearch(salesSearchInput);
         setSalesPage(1); // Reset to first page on search
-      }, 3000);
+        // call API with current input to avoid relying on state update timing
+        fetchSales(salesSearchInput);
+      }
+    }, delay);
 
-      return () => clearTimeout(timer);
-    }
-  }, [salesSearchInput, activeTab]);
+    return () => clearTimeout(timer);
+  }, [salesSearchInput, activeTab, salesSearch]);
 
   useEffect(() => {
     if (activeTab === 'sales') {
@@ -116,20 +122,26 @@ const Sell = () => {
     }
   };
 
-  const fetchSales = async () => {
+  // fetchSales accepts an optional search override so callers can force a request
+  // with the latest input without waiting for state to settle.
+  const fetchSales = async (searchOverride?: string) => {
     try {
+      const searchParam = (typeof searchOverride === 'string' ? searchOverride : salesSearch) || undefined;
+      console.log('[Sell] fetchSales called', { page: salesPage, limit: salesLimit, search: searchParam, startDate: salesStartDate, endDate: salesEndDate });
       setSalesLoading(true);
       const salesResponse = await salesApi.fetchSales({
         page: salesPage,
         limit: salesLimit,
-        search: salesSearch || undefined,
+        search: searchParam,
         startDate: salesStartDate || undefined,
         endDate: salesEndDate || undefined,
       });
+      console.log('[Sell] fetchSales response', salesResponse);
       setSales(salesResponse.data);
       setSalesTotal(salesResponse.total);
       setSalesTotalPages(salesResponse.totalPages);
     } catch (err: any) {
+      console.error('[Sell] fetchSales error', err);
       setError(err.response?.data?.message || 'Failed to fetch sales');
     } finally {
       setSalesLoading(false);
@@ -306,9 +318,9 @@ const Sell = () => {
                 <button
                   onClick={() => {
                     setActiveTab('sales');
-                    if (sales.length === 0) {
-                      fetchSales();
-                    }
+                    setSalesSearch(salesSearchInput);
+                    setSalesPage(1);
+                    fetchSales(salesSearchInput);
                   }}
                   className={`py-4 px-1 border-b-2 font-semibold text-sm transition-all duration-300 ${
                     activeTab === 'sales'
@@ -633,6 +645,14 @@ const Sell = () => {
                           type="text"
                           value={salesSearchInput}
                           onChange={(e) => handleSalesSearchChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              setSalesSearch(salesSearchInput);
+                              setSalesPage(1);
+                              fetchSales(salesSearchInput);
+                            }
+                          }}
                           placeholder="Search by product name..."
                           className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
