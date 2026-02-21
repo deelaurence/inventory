@@ -451,7 +451,7 @@ const Sell = () => {
                             getOptionValue={product => product._id}
                             placeholder="Select a product..."
                             disabled={!row.locationId}
-                            limit={20}
+                            limit={100}
                               onSelect={(product) => {
                                 const location = product.locations.find((loc) => {
                                   const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
