@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { productsApi, type Product } from '../services/productsApi';
 import type { Location } from '../services/locationsApi';
 import { importLocationsApi, type ImportLocation } from '../services/importLocationsApi';
@@ -32,6 +32,15 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
   const [error, setError] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedImportLocation, setSelectedImportLocation] = useState('');
+
+  // Search and Pagination states
+  const [searchPage, setSearchPage] = useState(1);
+  const [hasMoreProducts, setHasMoreProducts] = useState(false);
+  const [isSearchingMore, setIsSearchingMore] = useState(false);
+  const [lastSearchQuery, setLastSearchQuery] = useState('');
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const [totalSearchPages, setTotalSearchPages] = useState(0);
+  const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
 
   // Helper to generate a random system parts number (SYS-XXXXX)
   const generateSystemPartsNumber = () => {
@@ -76,13 +85,68 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
     try {
       const response = await productsApi.fetchProducts({
         page: 1,
-        limit: 50,
+        limit: 100,
       });
       setExistingProducts(response.data);
+      setHasMoreProducts(response.page < response.totalPages);
+      setTotalProductsCount(response.total);
+      setTotalSearchPages(response.totalPages);
+      setSearchPage(1);
+      setLastSearchQuery('');
     } catch (err) {
       console.error('Failed to fetch existing products:', err);
     }
   };
+
+  const handleProductSearch = useCallback(async (query: string) => {
+    setLastSearchQuery(query);
+    setSearchPage(1);
+    try {
+      const response = await productsApi.fetchProducts({
+        page: 1,
+        limit: 100,
+        search: query
+      });
+      
+      setExistingProducts(response.data);
+      setHasMoreProducts(response.page < response.totalPages);
+      setTotalProductsCount(response.total);
+      setTotalSearchPages(response.totalPages);
+      return response.data;
+    } catch (err) {
+      console.error('Search failed:', err);
+      return [];
+    }
+  }, []);
+
+  const handleLoadMoreProducts = useCallback(async () => {
+    if (isSearchingMore) return;
+    
+    const nextPage = searchPage + 1;
+    setIsSearchingMore(true);
+    try {
+      const response = await productsApi.fetchProducts({
+        page: nextPage,
+        limit: 100,
+        search: lastSearchQuery
+      });
+      
+      setExistingProducts(prev => {
+        const newProducts = response.data.filter(
+          newP => !prev.some(oldP => oldP._id === newP._id)
+        );
+        return [...prev, ...newProducts];
+      });
+      setSearchPage(nextPage);
+      setHasMoreProducts(response.page < response.totalPages);
+      setTotalProductsCount(response.total);
+      setTotalSearchPages(response.totalPages);
+    } catch (err) {
+      console.error('Load more failed:', err);
+    } finally {
+      setIsSearchingMore(false);
+    }
+  }, [isSearchingMore, searchPage, lastSearchQuery]);
 
   const fetchImportLocations = async () => {
     try {
@@ -187,6 +251,8 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
     setLoading(true);
     setError('');
 
+    setHasTriedSubmit(true);
+
     if (products.length === 0) {
       setError('Please add at least one product to the list');
       setLoading(false);
@@ -200,17 +266,20 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
     }
 
     // Validate all products
+    let hasValidationError = false;
     for (const product of products) {
       if (!product.quantity || parseFloat(product.quantity) <= 0) {
-        setError(`Quantity must be a positive number for ${product.description}`);
-        setLoading(false);
-        return;
+        hasValidationError = true;
       }
       if (!product.unitPrice || parseFloat(product.unitPrice) <= 0) {
-        setError(`Cost price must be a positive number for ${product.description}`);
-        setLoading(false);
-        return;
+        hasValidationError = true;
       }
+    }
+
+    if (hasValidationError) {
+      setError('Please correct the highlighted errors in the product list');
+      setLoading(false);
+      return;
     }
 
     try {
@@ -313,8 +382,15 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                       onChange={(value) => setSelectedExistingProductId(value)}
                       getOptionLabel={(product) => `${product.description} (${product.partsNumber})`}
                       getOptionValue={(product) => product._id}
-                      placeholder="Choose existing product..."
-                      limit={50}
+                      placeholder="Type to search all products..."
+                      limit={100}
+                      onSearch={handleProductSearch}
+                      hasMore={hasMoreProducts}
+                      onLoadMore={handleLoadMoreProducts}
+                      loadingMore={isSearchingMore}
+                      total={totalProductsCount}
+                      page={searchPage}
+                      totalPages={totalSearchPages}
                     />
                   </div>
                   <button
@@ -505,7 +581,11 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                                 type="number"
                                 value={product.quantity}
                                 onChange={(e) => handleUpdateProduct(product.id, 'quantity', e.target.value)}
-                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                className={`w-20 px-2 py-1 text-sm border rounded-lg focus:ring-2 transition-colors ${
+                                  hasTriedSubmit && (!product.quantity || parseFloat(product.quantity) <= 0)
+                                    ? 'border-red-500 ring-1 ring-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                }`}
                                 min="1"
                                 required
                               />
@@ -515,7 +595,11 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                                 type="number"
                                 value={product.unitPrice}
                                 onChange={(e) => handleUpdateProduct(product.id, 'unitPrice', e.target.value)}
-                                className="w-24 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                className={`w-24 px-2 py-1 text-sm border rounded-lg focus:ring-2 transition-colors ${
+                                  hasTriedSubmit && (!product.unitPrice || parseFloat(product.unitPrice) <= 0)
+                                    ? 'border-red-500 ring-1 ring-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                }`}
                                 min="0"
                                 step="0.01"
                                 required
@@ -565,6 +649,7 @@ const BulkImportModal = ({ isOpen, onClose, onSuccess, locations }: BulkImportMo
                   getOptionValue={(location) => location._id}
                   placeholder="Select storage location"
                   limit={50}
+                  error={hasTriedSubmit && !selectedLocation}
                 />
               </div>
               <div>

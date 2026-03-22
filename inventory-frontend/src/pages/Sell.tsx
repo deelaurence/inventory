@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { productsApi, type Product } from '../services/productsApi';
 import { locationsApi, type Location } from '../services/locationsApi';
 import { salesApi } from '../services/salesApi';
@@ -17,11 +17,15 @@ const Sell = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
   
   // Pagination states for products
-  const [productsPage] = useState(1);
-  const [productsLimit] = useState(100);
-  const [productsSearch] = useState('');
+  const [productsSearchPage, setProductsSearchPage] = useState(1);
+  const [productsHasMore, setProductsHasMore] = useState(false);
+  const [isSearchingProductsMore, setIsSearchingProductsMore] = useState(false);
+  const [lastProductSearchQuery, setLastProductSearchQuery] = useState('');
+  const [productsTotal, setProductsTotal] = useState(0);
+  const [productsTotalPages, setProductsTotalPages] = useState(0);
   
   // Pagination states for sales
   const [salesPage, setSalesPage] = useState(1);
@@ -129,14 +133,18 @@ const Sell = () => {
       setLoading(true);
       const [productsResponse, locationsData] = await Promise.all([
         productsApi.fetchProducts({
-          page: productsPage,
-          limit: productsLimit,
-          search: productsSearch || undefined,
+          page: 1,
+          limit: 100,
         }),
         locationsApi.fetchLocations(),
       ]);
       // Store products from paginated response
       setProducts(productsResponse.data);
+      setProductsHasMore(productsResponse.page < productsResponse.totalPages);
+      setProductsTotal(productsResponse.total);
+      setProductsTotalPages(productsResponse.totalPages);
+      setProductsSearchPage(1);
+      setLastProductSearchQuery('');
       setLocations(locationsData);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch data');
@@ -144,6 +152,55 @@ const Sell = () => {
       setLoading(false);
     }
   };
+
+  const handleProductSearch = useCallback(async (query: string) => {
+    setLastProductSearchQuery(query);
+    setProductsSearchPage(1);
+    try {
+      const response = await productsApi.fetchProducts({
+        page: 1,
+        limit: 100,
+        search: query || undefined
+      });
+      setProducts(response.data);
+      setProductsHasMore(response.page < response.totalPages);
+      setProductsTotal(response.total);
+      setProductsTotalPages(response.totalPages);
+      return response.data;
+    } catch (err) {
+      console.error('Product search failed:', err);
+      return [];
+    }
+  }, []);
+
+  const handleLoadMoreProducts = useCallback(async () => {
+    if (isSearchingProductsMore) return;
+    
+    const nextPage = productsSearchPage + 1;
+    setIsSearchingProductsMore(true);
+    try {
+      const resp = await productsApi.fetchProducts({
+        page: nextPage,
+        limit: 100,
+        search: lastProductSearchQuery || undefined
+      });
+      
+      setProducts(prev => {
+        const newProducts = resp.data.filter(
+          newP => !prev.some(oldP => oldP._id === newP._id)
+        );
+        return [...prev, ...newProducts];
+      });
+      setProductsSearchPage(nextPage);
+      setProductsHasMore(resp.page < resp.totalPages);
+      setProductsTotal(resp.total);
+      setProductsTotalPages(resp.totalPages);
+    } catch (err) {
+      console.error('Load more products failed:', err);
+    } finally {
+      setIsSearchingProductsMore(false);
+    }
+  }, [isSearchingProductsMore, productsSearchPage, lastProductSearchQuery]);
 
   // fetchSales accepts an optional search override so callers can force a request
   // with the latest input without waiting for state to settle.
@@ -233,43 +290,33 @@ const Sell = () => {
     }));
   };
 
-  // Server-side product search used by SearchableSelect when open
-  const searchProducts = async (q: string) => {
-    // fetch first page with higher limit to present more options
-    const resp = await productsApi.fetchProducts({ page: 1, limit: 100, search: q || undefined });
-    return resp.data;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
     setSuccess(false);
+    setHasTriedSubmit(true);
 
     // Validate all product rows
-    for (const [idx, row] of productsInSale.entries()) {
+    let hasValidationError = false;
+    for (const row of productsInSale) {
       if (!row.productId || !row.locationId || !row.quantity || !row.unitPrice) {
-        setError(`Please fill in all required fields for product #${idx + 1}`);
-        setSubmitting(false);
-        return;
+        hasValidationError = true;
       }
       const quantity = parseInt(row.quantity);
-      if (isNaN(quantity) || quantity <= 0) {
-        setError(`Quantity must be a positive number for product #${idx + 1}`);
-        setSubmitting(false);
-        return;
-      }
-      if (quantity > row.availableQuantity) {
-        setError(`Insufficient stock for product #${idx + 1}. Available: ${row.availableQuantity}`);
-        setSubmitting(false);
-        return;
+      if (isNaN(quantity) || quantity <= 0 || quantity > row.availableQuantity) {
+        hasValidationError = true;
       }
       const price = parseFloat(row.unitPrice);
       if (isNaN(price) || price <= 0) {
-        setError(`Price must be a positive number for product #${idx + 1}`);
-        setSubmitting(false);
-        return;
+        hasValidationError = true;
       }
+    }
+
+    if (hasValidationError) {
+      setError('Please correct the highlighted errors in the sale form');
+      setSubmitting(false);
+      return;
     }
 
     try {
@@ -424,6 +471,7 @@ const Sell = () => {
                             getOptionValue={location => location._id}
                             placeholder="Select shop/location..."
                             limit={20}
+                            error={hasTriedSubmit && !row.locationId}
                           />
                         </div>
                         {/* Product */}
@@ -439,8 +487,14 @@ const Sell = () => {
                             )}
                             value={row.productId}
                             onChange={value => handleProductRowChange(idx, 'productId', value)}
-                            onSearch={searchProducts}
-                              getOptionLabel={product => {
+                            onSearch={handleProductSearch}
+                            hasMore={productsHasMore}
+                            onLoadMore={handleLoadMoreProducts}
+                            loadingMore={isSearchingProductsMore}
+                            total={productsTotal}
+                            page={productsSearchPage}
+                            totalPages={productsTotalPages}
+                            getOptionLabel={product => {
                               const location = product.locations.find((loc) => {
                                 const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
                                 return lid === row.locationId;
@@ -452,7 +506,8 @@ const Sell = () => {
                             placeholder="Select a product..."
                             disabled={!row.locationId}
                             limit={100}
-                              onSelect={(product) => {
+                            error={hasTriedSubmit && !row.productId}
+                            onSelect={(product) => {
                                 const location = product.locations.find((loc) => {
                                   const lid = loc.locationId && typeof loc.locationId === 'object' ? loc.locationId._id : loc.locationId;
                                   return lid === row.locationId;
@@ -494,7 +549,11 @@ const Sell = () => {
                             min="1"
                             max={row.availableQuantity}
                             disabled={!row.locationId || row.availableQuantity === 0}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                              hasTriedSubmit && (!row.quantity || parseInt(row.quantity) <= 0 || parseInt(row.quantity) > row.availableQuantity)
+                                ? 'border-red-500 ring-1 ring-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                            }`}
                             placeholder="0"
                           />
                           {row.productId && row.locationId && row.availableQuantity > 0 && (
@@ -515,9 +574,13 @@ const Sell = () => {
                               required
                               min="0"
                               step="0.01"
-                              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                              placeholder="0.00"
-                            />
+                            className={`w-full pl-7 pr-3 py-2 border rounded-lg focus:ring-2 transition-colors ${
+                              hasTriedSubmit && (!row.unitPrice || parseFloat(row.unitPrice) <= 0)
+                                ? 'border-red-500 ring-1 ring-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                            }`}
+                            placeholder="0.00"
+                          />
                           </div>
                           {row.selectedProduct && row.unitPrice && parseFloat(row.unitPrice) > 0 && (() => {
                             const profitCalc = calculateProfit(row.selectedProduct.unitPrice, parseFloat(row.unitPrice));

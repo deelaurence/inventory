@@ -16,6 +16,14 @@ interface SearchableSelectProps<T> {
   onSearch?: (query: string) => Promise<T[]>;
   // Called with the full option object when a user selects an option.
   onSelect?: (option: T) => void;
+  // Pagination support
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
+  total?: number;
+  page?: number;
+  totalPages?: number;
+  error?: boolean;
 }
 
 export default function SearchableSelect<T>({
@@ -30,6 +38,13 @@ export default function SearchableSelect<T>({
   limit = 100,
   onSearch,
   onSelect,
+  hasMore,
+  onLoadMore,
+  loadingMore,
+  total,
+  page,
+  totalPages,
+  error,
 }: SearchableSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,9 +137,13 @@ export default function SearchableSelect<T>({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-3 py-2 text-left border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+        className={`w-full px-3 py-2 text-left border rounded-lg focus:ring-2 transition-colors ${
           disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
-        }`}
+        } ${
+          error 
+            ? 'border-red-500 ring-1 ring-red-500 focus:ring-red-500 focus:border-red-500' 
+            : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+        } ${className}`}
       >
         <div className="flex items-center justify-between">
           <span className={value ? 'text-gray-900' : 'text-gray-500'}>
@@ -177,9 +196,38 @@ export default function SearchableSelect<T>({
                 );
               })
             )}
-            {sourceOptions.length > limit && (
-              <div className="px-4 py-2 text-xs text-gray-500 text-center border-t border-gray-200">
-                Showing {filteredOptions.length} of {sourceOptions.length} options
+            {(sourceOptions.length > limit || total) && !hasMore && (
+              <div className="px-4 py-2 text-xs text-gray-500 text-center border-t border-gray-200 bg-gray-50/50">
+                <div className="flex flex-col space-y-0.5">
+                  <span className="font-medium">Showing {filteredOptions.length} of {total || sourceOptions.length} results</span>
+                  {page !== undefined && totalPages !== undefined && (
+                    <span className="text-[10px] text-gray-400">Page {page} of {totalPages}</span>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {hasMore && (
+              <div className="p-2 border-t border-gray-200 space-y-2 bg-gray-50/50">
+                <div className="flex flex-col items-center space-y-0.5">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
+                    Showing {sourceOptions.length} of {total || 'more'} results
+                  </span>
+                  {page !== undefined && totalPages !== undefined && (
+                    <span className="text-[10px] text-gray-500 font-medium">Page {page} of {totalPages}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onLoadMore) onLoadMore();
+                  }}
+                  disabled={loadingMore}
+                  className="w-full py-2 text-sm text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingMore ? 'Loading more...' : 'Load more results'}
+                </button>
               </div>
             )}
           </div>

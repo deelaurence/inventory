@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { productsApi, type Product } from '../services/productsApi';
 import type { Location } from '../services/locationsApi';
 import { importLocationsApi, type ImportLocation } from '../services/importLocationsApi';
@@ -29,6 +29,15 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
   const [importLocations, setImportLocations] = useState<ImportLocation[]>([]);
   const [existingProducts, setExistingProducts] = useState<Product[]>([]);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
+
+  // Search and Pagination states
+  const [searchPage, setSearchPage] = useState(1);
+  const [hasMoreProducts, setHasMoreProducts] = useState(false);
+  const [isSearchingMore, setIsSearchingMore] = useState(false);
+  const [lastSearchQuery, setLastSearchQuery] = useState('');
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const [totalSearchPages, setTotalSearchPages] = useState(0);
+  const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
 
   // Helper to generate a random system parts number (SYS-XXXXX)
   const generateSystemPartsNumber = () => {
@@ -73,13 +82,67 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
     try {
       const response = await productsApi.fetchProducts({
         page: 1,
-        limit: 50,
+        limit: 100,
       });
       setExistingProducts(response.data);
+      setHasMoreProducts(response.page < response.totalPages);
+      setTotalProductsCount(response.total);
+      setTotalSearchPages(response.totalPages);
+      setSearchPage(1);
+      setLastSearchQuery('');
     } catch (err) {
       console.error('Failed to fetch existing products:', err);
     }
   };
+
+  const handleProductSearch = useCallback(async (query: string) => {
+    setLastSearchQuery(query);
+    setSearchPage(1);
+    try {
+      const response = await productsApi.fetchProducts({
+        page: 1,
+        limit: 100,
+        search: query
+      });
+      setExistingProducts(response.data);
+      setHasMoreProducts(response.page < response.totalPages);
+      setTotalProductsCount(response.total);
+      setTotalSearchPages(response.totalPages);
+      return response.data;
+    } catch (err) {
+      console.error('Search failed:', err);
+      return [];
+    }
+  }, []);
+
+  const handleLoadMoreProducts = useCallback(async () => {
+    if (isSearchingMore) return;
+    
+    const nextPage = searchPage + 1;
+    setIsSearchingMore(true);
+    try {
+      const response = await productsApi.fetchProducts({
+        page: nextPage,
+        limit: 100,
+        search: lastSearchQuery
+      });
+      
+      setExistingProducts(prev => {
+        const newProducts = response.data.filter(
+          newP => !prev.some(oldP => oldP._id === newP._id)
+        );
+        return [...prev, ...newProducts];
+      });
+      setSearchPage(nextPage);
+      setHasMoreProducts(response.page < response.totalPages);
+      setTotalProductsCount(response.total);
+      setTotalSearchPages(response.totalPages);
+    } catch (err) {
+      console.error('Load more failed:', err);
+    } finally {
+      setIsSearchingMore(false);
+    }
+  }, [isSearchingMore, searchPage, lastSearchQuery]);
 
   const handleProductSelect = (productId: string) => {
     if (!productId) {
@@ -141,8 +204,11 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
     if (!formData.importLocation || formData.importLocation.trim() === '') {
       setError('Storage location is required');
       setLoading(false);
+      setHasTriedSubmit(true);
       return;
     }
+
+    setHasTriedSubmit(true);
 
     // Validate MongoDB ID format for locationId
     if (!mongoIdRegex.test(formData.importLocation.trim())) {
@@ -297,8 +363,15 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 onChange={(value) => handleProductSelect(value)}
                 getOptionLabel={(product) => `${product.description} (${product.partsNumber})`}
                 getOptionValue={(product) => product._id}
-                placeholder="Create New Product"
-                limit={50}
+                placeholder="Type to search all products..."
+                limit={100}
+                onSearch={handleProductSearch}
+                hasMore={hasMoreProducts}
+                onLoadMore={handleLoadMoreProducts}
+                loadingMore={isSearchingMore}
+                total={totalProductsCount}
+                page={searchPage}
+                totalPages={totalSearchPages}
               />
               {isEditingExisting && (
                 <div className="mt-1">
@@ -329,8 +402,12 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 onChange={handleChange}
                 required
                 readOnly={isEditingExisting}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                  isEditingExisting ? 'bg-gray-50 text-gray-900 cursor-not-allowed border-gray-200' : ''
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-colors ${
+                  isEditingExisting 
+                    ? 'bg-gray-50 text-gray-900 cursor-not-allowed border-gray-200' 
+                    : hasTriedSubmit && (!formData.description || formData.description.trim() === '')
+                    ? 'border-red-500 ring-1 ring-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                 }`}
                 placeholder="Enter product description"
               />
@@ -373,7 +450,11 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                   onChange={handleChange}
                   required
                   min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-colors ${
+                    hasTriedSubmit && (!formData.quantity || parseInt(formData.quantity) <= 0)
+                      ? 'border-red-500 ring-1 ring-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
                   placeholder="0"
                 />
               </div>
@@ -395,7 +476,11 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                     required
                     min="0"
                     step="0.01"
-                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className={`w-full pl-7 pr-3 py-2 border rounded-lg focus:ring-2 transition-colors ${
+                      hasTriedSubmit && (!formData.unitPrice || parseFloat(formData.unitPrice) <= 0)
+                        ? 'border-red-500 ring-1 ring-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
                     placeholder="0.00"
                   />
                 </div>
@@ -414,6 +499,7 @@ const ImportProductModal = ({ isOpen, onClose, onSuccess, locations }: ImportPro
                 getOptionValue={(location) => location._id}
                 placeholder="Select storage location"
                 limit={50}
+                error={hasTriedSubmit && !formData.importLocation}
               />
             </div>
 
